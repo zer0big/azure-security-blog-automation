@@ -121,10 +121,13 @@ jobs:
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
+          # Wrap the workflow definition in a 'definition' key
+          DEFINITION=$(jq -c '{definition: .}' workflows/security-blog-summarizer.json)
+          
           az logic workflow update \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --name $LOGIC_APP_NAME \
-            --definition @workflows/security-blog-summarizer.json
+            --definition "$DEFINITION"
           
           echo "✅ Workflow deployed successfully"
 
