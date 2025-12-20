@@ -121,13 +121,31 @@ jobs:
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
-          # Wrap the workflow definition in a 'definition' key
-          DEFINITION=$(jq -c '{definition: .}' workflows/security-blog-summarizer.json)
+          # Create workflow definition with parameters
+          cat > workflow-definition.json <<EOF
+          {
+            "definition": $(cat workflows/security-blog-summarizer.json),
+            "parameters": {
+              "openAiEndpoint": {
+                "value": "${{ secrets.OPENAI_ENDPOINT }}"
+              },
+              "openAiDeploymentName": {
+                "value": "${{ secrets.OPENAI_DEPLOYMENT_NAME }}"
+              },
+              "emailRecipient": {
+                "value": "${{ secrets.EMAIL_RECIPIENT }}"
+              },
+              "rssFeedUrl": {
+                "value": "https://www.microsoft.com/en-us/security/blog/feed/"
+              }
+            }
+          }
+          EOF
           
           az logic workflow update \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --name $LOGIC_APP_NAME \
-            --definition "$DEFINITION"
+            --definition @workflow-definition.json
           
           echo "✅ Workflow deployed successfully"
 
