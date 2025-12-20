@@ -126,26 +126,26 @@ jobs:
           
           # Workflow definition JSON 생성
           cat > workflow-payload.json <<'EOFJSON'
-{
-  "properties": {
-    "definition": DEFINITION_PLACEHOLDER,
-    "parameters": {
-      "openAiEndpoint": {
-        "value": "OPENAI_ENDPOINT_VALUE"
-      },
-      "openAiDeploymentName": {
-        "value": "OPENAI_DEPLOYMENT_NAME_VALUE"
-      },
-      "emailRecipient": {
-        "value": "EMAIL_RECIPIENT_VALUE"
-      },
-      "rssFeedUrl": {
-        "value": "https://www.microsoft.com/en-us/security/blog/feed/"
-      }
-    }
-  }
-}
-EOFJSON
+          {
+            "properties": {
+              "definition": DEFINITION_PLACEHOLDER,
+              "parameters": {
+                "openAiEndpoint": {
+                  "value": "OPENAI_ENDPOINT_VALUE"
+                },
+                "openAiDeploymentName": {
+                  "value": "OPENAI_DEPLOYMENT_NAME_VALUE"
+                },
+                "emailRecipient": {
+                  "value": "EMAIL_RECIPIENT_VALUE"
+                },
+                "rssFeedUrl": {
+                  "value": "https://www.microsoft.com/en-us/security/blog/feed/"
+                }
+              }
+            }
+          }
+          EOFJSON
 
           # Placeholders 치환
           WORKFLOW_DEF=$(cat workflows/security-blog-summarizer.json | jq -c)
