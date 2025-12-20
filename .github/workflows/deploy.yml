@@ -142,6 +142,16 @@ jobs:
                   rssFeedUrl: { value: $rssFeedUrl }
                 }
           
+              }
+            }' \
+            > workflow-payload.json
+
+          # REST API로 업데이트
+          LOGIC_APP_ID=$(az logic workflow show \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name $LOGIC_APP_NAME \
+            --query id -o tsv)
+
           az rest \
             --method PUT \
             --uri "${LOGIC_APP_ID}?api-version=2019-05-01" \
