@@ -137,7 +137,7 @@ jobs:
 
           # Workflow payload 생성 (jq로 안전하게 구성)
           jq -n \
-            --slurpfile def workflows/security-blog-summarizer.json \
+            --slurpfile def workflows/security-blog-definition.json \
             --arg openAiEndpoint "${{ secrets.OPENAI_ENDPOINT }}" \
             --arg openAiDeploymentName "${{ secrets.OPENAI_DEPLOYMENT_NAME }}" \
             --arg emailRecipient "${{ secrets.EMAIL_RECIPIENT }}" \
@@ -278,3 +278,4 @@ jobs:
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           echo "??Deployment to $ENV environment failed"
           exit 1
+

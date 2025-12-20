@@ -1,0 +1,67 @@
+{
+    "outputs":  {
+
+                },
+    "triggers":  {
+                     "Recurrence":  {
+                                        "recurrence":  {
+                                                           "frequency":  "Day",
+                                                           "interval":  1,
+                                                           "schedule":  {
+                                                                            "hours":  [
+                                                                                          "9"
+                                                                                      ],
+                                                                            "minutes":  [
+                                                                                            0
+                                                                                        ]
+                                                                        },
+                                                           "timeZone":  "Korea Standard Time"
+                                                       },
+                                        "type":  "Recurrence"
+                                    }
+                 },
+    "actions":  {
+                    "List_RSS":  {
+                                     "inputs":  {
+                                                    "host":  {
+                                                                 "connection":  {
+                                                                                    "referenceName":  "rss"
+                                                                                }
+                                                             },
+                                                    "path":  "/ListFeedItems",
+                                                    "queries":  {
+                                                                    "feedUrl":  "@parameters(\u0027rssFeedUrl\u0027)"
+                                                                },
+                                                    "method":  "get"
+                                                },
+                                     "runAfter":  {
+
+                                                  },
+                                     "type":  "ApiConnection"
+                                 },
+                    "Send_Test_Email":  {
+                                            "inputs":  {
+                                                           "body":  {
+                                                                        "Subject":  "? Logic App 테스트 - @{utcNow()}",
+                                                                        "To":  "@parameters(\u0027emailRecipient\u0027)",
+                                                                        "Body":  "\u003ch2\u003eLogic App 동작 확인 테스트\u003c/h2\u003e\u003cp\u003e\u003cstrong\u003e이메일 발송 성공!\u003c/strong\u003e\u003c/p\u003e\u003cp\u003e수신자: @{parameters(\u0027emailRecipient\u0027)}\u003c/p\u003e\u003cp\u003e시간: @{utcNow()}\u003c/p\u003e\u003chr/\u003e\u003cp\u003eRSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.\u003c/p\u003e",
+                                                                        "Importance":  "High"
+                                                                    },
+                                                           "host":  {
+                                                                        "connection":  {
+                                                                                           "referenceName":  "office365"
+                                                                                       }
+                                                                    },
+                                                           "path":  "/v2/Mail",
+                                                           "method":  "post"
+                                                       },
+                                            "runAfter":  {
+                                                             "List_RSS":  [
+                                                                              "Succeeded"
+                                                                          ]
+                                                         },
+                                            "type":  "ApiConnection"
+                                        }
+                },
+    "contentVersion":  "1.0.0.0"
+}
