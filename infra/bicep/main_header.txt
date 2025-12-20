@@ -1,0 +1,47 @@
+﻿// ====================================================================================
+// Azure Logic Apps 보안 블로그 자동 요약 시스템 - Main Bicep Template
+// ====================================================================================
+// Well-Architected Framework 원칙 적용:
+// - 신뢰성: 재시도 정책, 에러 처리
+// - 보안: Managed Identity, Key Vault 통합
+// - 비용 최적화: Consumption 플랜
+// - 운영 우수성: 태그 전략, 명명 규칙
+// - 성능 효율성: Application Insights 모니터링
+// ====================================================================================
+
+targetScope = 'resourceGroup'
+
+@description('환경 이름 (dev, test, prod)')
+@allowed([
+  'dev'
+  'test'
+  'prod'
+])
+param environment string = 'dev'
+
+@description('프로젝트 이름')
+param projectName string = 'security-blog-automation'
+
+@description('Azure 리전')
+param location string = resourceGroup().location
+
+@description('생성 날짜 (YYYY-MM-DD 형식)')
+param currentDate string = utcNow('yyyy-MM-dd')
+
+// ====================================================================================
+// Variables - Well-Architected Framework 명명 규칙
+// ====================================================================================
+
+var namingPrefix = 'UTF8{environment}-UTF8{projectName}'
+var tags = {
+  Environment: environment
+  Project: projectName
+  ManagedBy: 'Bicep'
+  CostCenter: 'Innovation'
+  CreatedDate: currentDate
+}
+
+// Resource 명명 규칙 (Azure Best Practices)
+var logicAppName = 'logic-UTF8{namingPrefix}'
+var appInsightsName = 'appi-UTF8{namingPrefix}'
+var logAnalyticsName = 'log-UTF8{namingPrefix}'
