@@ -124,35 +124,25 @@ jobs:
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
-          # Workflow definition JSON 생성
-          cat > workflow-payload.json <<'EOFJSON'
-          {
-            "properties": {
-              "definition": DEFINITION_PLACEHOLDER,
-              "parameters": {
-                "openAiEndpoint": {
-                  "value": "OPENAI_ENDPOINT_VALUE"
-                },
-                "openAiDeploymentName": {
-                  "value": "OPENAI_DEPLOYMENT_NAME_VALUE"
-                },
-                "emailRecipient": {
-                  "value": "EMAIL_RECIPIENT_VALUE"
-                },
-                "rssFeedUrl": {
-                  "value": "https://www.microsoft.com/en-us/security/blog/feed/"
+          # Workflow payload 생성 (jq로 안전하게 구성)
+          jq -n \
+            --slurpfile def workflows/security-blog-summarizer.json \
+            --arg openAiEndpoint "${{ secrets.OPENAI_ENDPOINT }}" \
+            --arg openAiDeploymentName "${{ secrets.OPENAI_DEPLOYMENT_NAME }}" \
+            --arg emailRecipient "${{ secrets.EMAIL_RECIPIENT }}" \
+            --arg rssFeedUrl "https://www.microsoft.com/en-us/security/blog/feed/" \
+            '{
+              properties: {
+                definition: $def[0],
+                parameters: {
+                  openAiEndpoint: { value: $openAiEndpoint },
+                  openAiDeploymentName: { value: $openAiDeploymentName },
+                  emailRecipient: { value: $emailRecipient },
+                  rssFeedUrl: { value: $rssFeedUrl }
                 }
               }
-            }
-          }
-          EOFJSON
-
-          # Placeholders 치환
-          WORKFLOW_DEF=$(cat workflows/security-blog-summarizer.json | jq -c)
-          sed -i "s|DEFINITION_PLACEHOLDER|$WORKFLOW_DEF|" workflow-payload.json
-          sed -i "s|OPENAI_ENDPOINT_VALUE|${{ secrets.OPENAI_ENDPOINT }}|" workflow-payload.json
-          sed -i "s|OPENAI_DEPLOYMENT_NAME_VALUE|${{ secrets.OPENAI_DEPLOYMENT_NAME }}|" workflow-payload.json
-          sed -i "s|EMAIL_RECIPIENT_VALUE|${{ secrets.EMAIL_RECIPIENT }}|" workflow-payload.json
+            }' \
+            > workflow-payload.json
           
           # REST API로 업데이트
           LOGIC_APP_ID=$(az logic workflow show \
