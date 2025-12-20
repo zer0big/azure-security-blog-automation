@@ -1,0 +1,92 @@
+# Azure
+*.azurePubxml
+*.pubxml
+*.PublishSettings
+azure.env
+
+# Azure Developer CLI
+.azure/
+
+# Bicep
+*.bicep.generated.json
+bicepconfig.json
+
+# Terraform (optional)
+.terraform/
+*.tfstate
+*.tfstate.backup
+.terraform.lock.hcl
+
+# Environment Variables
+.env
+.env.local
+*.env
+
+# Secrets
+secrets.json
+appsettings.*.json
+!appsettings.json
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa]rm/
+[Aa]rm64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio Code
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Azure Functions
+local.settings.json
+__blobstorage__
+__queuestorage__
+__azurite_db*__
+
+# Node
+node_modules/
+package-lock.json
+yarn.lock
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# Keys and Certificates
+*.pfx
+*.p12
+*.key
+*.pem
+*.cer
+*.crt

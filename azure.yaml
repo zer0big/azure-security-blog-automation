@@ -1,0 +1,52 @@
+# Azure Developer CLI (azd) Configuration
+# https://learn.microsoft.com/azure/developer/azure-developer-cli/
+
+name: azure-security-blog-automation
+metadata:
+  template: azure-security-blog-automation@0.1.0
+
+# Infrastructure as Code
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+# Azure Services
+services:
+  logic-app:
+    project: ./workflows
+    language: json
+    host: logicapp
+
+# Environment Variables
+parameters:
+  AZURE_LOCATION:
+    description: Azure region for deployment
+    default: koreacentral
+  
+  OPENAI_MODEL_DEPLOYMENT:
+    description: Azure OpenAI model deployment name
+    default: gpt-4
+  
+  SENDER_EMAIL:
+    description: Office 365 sender email address
+    type: string
+  
+  RECIPIENT_EMAIL:
+    description: Email recipient address
+    type: string
+  
+  RSS_URL:
+    description: Microsoft Security Blog RSS URL
+    default: https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftSecurityandCompliance
+
+# Hooks
+hooks:
+  postprovision:
+    shell: sh
+    run: |
+      echo "✅ Infrastructure provisioned successfully"
+      echo "📝 Next steps:"
+      echo "  1. Approve Office 365 connection in Azure Portal"
+      echo "  2. Test Logic App workflow manually"
+      echo "  3. Monitor Application Insights"
