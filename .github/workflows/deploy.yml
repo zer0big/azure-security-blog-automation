@@ -1,4 +1,4 @@
-﻿name: Deploy to Azure
+name: Deploy to Azure
 
 on:
   push:
@@ -70,7 +70,7 @@ jobs:
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           
-          # Resource Group 議댁옱 ?щ? ?뺤씤 諛??앹꽦
+          # Resource Group 존재 ?��? ?�인 �??�성
           if ! az group exists --name ${RESOURCE_GROUP_PREFIX}-${ENV}; then
             echo "Creating resource group ${RESOURCE_GROUP_PREFIX}-${ENV}..."
             az group create \
@@ -79,7 +79,7 @@ jobs:
               --tags Environment=${ENV} Project=security-blog-automation ManagedBy=GitHubActions
           fi
           
-          # Bicep 諛고룷
+          # Bicep 배포
           DEPLOYMENT_OUTPUT=$(az deployment group create \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --template-file infra/bicep/main.bicep \
@@ -89,7 +89,7 @@ jobs:
             --parameters openAiDeploymentName=${{ secrets.OPENAI_DEPLOYMENT_NAME }} \
             --output json)
           
-          # Outputs 異붿텧
+          # Outputs 추출
           LOGIC_APP_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppName.value')
           LOGIC_APP_ID=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppId.value')
           
@@ -114,6 +114,9 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
+      - name: Checkout workflows
+        uses: actions/checkout@v4
+        
       - name: Update Logic App workflow
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
@@ -121,12 +124,48 @@ jobs:
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
-          az logic workflow update \
+          # Workflow definition JSON ����
+          cat > workflow-payload.json <<'EOFJSON'
+{
+  "properties": {
+    "definition": DEFINITION_PLACEHOLDER,
+    "parameters": {
+      "openAiEndpoint": {
+        "value": "OPENAI_ENDPOINT_VALUE"
+      },
+      "openAiDeploymentName": {
+        "value": "OPENAI_DEPLOYMENT_NAME_VALUE"
+      },
+      "emailRecipient": {
+        "value": "EMAIL_RECIPIENT_VALUE"
+      },
+      "rssFeedUrl": {
+        "value": "https://www.microsoft.com/en-us/security/blog/feed/"
+      }
+    }
+  }
+}
+EOFJSON
+
+          # Placeholders ġȯ
+          WORKFLOW_DEF=$(cat workflows/security-blog-summarizer.json | jq -c)
+          sed -i "s|DEFINITION_PLACEHOLDER|$WORKFLOW_DEF|" workflow-payload.json
+          sed -i "s|OPENAI_ENDPOINT_VALUE|${{ secrets.OPENAI_ENDPOINT }}|" workflow-payload.json
+          sed -i "s|OPENAI_DEPLOYMENT_NAME_VALUE|${{ secrets.OPENAI_DEPLOYMENT_NAME }}|" workflow-payload.json
+          sed -i "s|EMAIL_RECIPIENT_VALUE|${{ secrets.EMAIL_RECIPIENT }}|" workflow-payload.json
+          
+          # REST API�� ������Ʈ
+          LOGIC_APP_ID=$(az logic workflow show \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --name $LOGIC_APP_NAME \
-            --definition @workflows/security-blog-summarizer.json
+            --query id -o tsv)
           
-          echo "??Workflow deployed successfully"
+          az rest \
+            --method PUT \
+            --uri "${LOGIC_APP_ID}?api-version=2019-05-01" \
+            --body @workflow-payload.json
+          
+          echo " Workflow deployed successfully"
 
   configure-managed-identity:
     name: Configure Managed Identity
@@ -145,7 +184,7 @@ jobs:
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
           
-          # Logic App Managed Identity Principal ID 異붿텧
+          # Logic App Managed Identity Principal ID 추출
           PRINCIPAL_ID=$(az logic workflow show \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --name $LOGIC_APP_NAME \
@@ -153,7 +192,7 @@ jobs:
           
           echo "Logic App Principal ID: $PRINCIPAL_ID"
           
-          # Azure OpenAI 由ъ냼?ㅼ뿉 ??븷 ?좊떦
+          # Azure OpenAI 리소?�에 ??�� ?�당
           az role assignment create \
             --assignee $PRINCIPAL_ID \
             --role "Cognitive Services OpenAI User" \
@@ -181,7 +220,7 @@ jobs:
           
           echo "Triggering Logic App: $LOGIC_APP_NAME"
           
-          # ?섎룞 ?몃━嫄??ㅽ뻾
+          # ?�동 ?�리�??�행
           az logic workflow run trigger \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --name $LOGIC_APP_NAME \
@@ -190,7 +229,7 @@ jobs:
           echo "??Waiting for workflow to complete (30 seconds)..."
           sleep 30
           
-          # 理쒓렐 ?ㅽ뻾 寃곌낵 ?뺤씤
+          # 최근 ?�행 결과 ?�인
           RUN_STATUS=$(az logic workflow run list \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --workflow-name $LOGIC_APP_NAME \
