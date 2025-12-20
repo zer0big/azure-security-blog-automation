@@ -70,7 +70,7 @@ jobs:
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           
-          # Resource Group ì¡´ìž¬ ì—¬ë¶€ í™•ì¸ ë° ìƒì„±
+          # Resource Group ì¡´ìž¬ ?¬ë? ?•ì¸ ë°??ì„±
           if ! az group exists --name ${RESOURCE_GROUP_PREFIX}-${ENV}; then
             echo "Creating resource group ${RESOURCE_GROUP_PREFIX}-${ENV}..."
             az group create \
@@ -96,7 +96,7 @@ jobs:
           echo "logicAppName=$LOGIC_APP_NAME" >> $GITHUB_OUTPUT
           echo "logicAppId=$LOGIC_APP_ID" >> $GITHUB_OUTPUT
           
-          echo "âœ… Infrastructure deployed successfully"
+          echo "??Infrastructure deployed successfully"
           echo "Logic App: $LOGIC_APP_NAME"
 
   deploy-workflow:
@@ -121,33 +121,17 @@ jobs:
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
-          # Create workflow definition with parameters
-          cat > workflow-definition.json <<EOF
-          {
-            "definition": $(cat workflows/security-blog-summarizer.json),
-            "parameters": {
-              "openAiEndpoint": {
-                "value": "${{ secrets.OPENAI_ENDPOINT }}"
-              },
-              "openAiDeploymentName": {
-                "value": "${{ secrets.OPENAI_DEPLOYMENT_NAME }}"
-              },
-              "emailRecipient": {
-                "value": "${{ secrets.EMAIL_RECIPIENT }}"
-              },
-              "rssFeedUrl": {
-                "value": "https://www.microsoft.com/en-us/security/blog/feed/"
-              }
-            }
-          }
-          EOF
-          
+          # Logic App workflow ¾÷µ¥ÀÌÆ® (definition stringÀ¸·Î Á÷Á¢ Àü´Þ)
           az logic workflow update \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --name $LOGIC_APP_NAME \
-            --definition @workflow-definition.json
+            --definition "$(cat workflows/security-blog-summarizer.json | jq -c | jq -R -s)" \
+            --parameters openAiEndpoint="${{ secrets.OPENAI_ENDPOINT }}" \
+            --parameters openAiDeploymentName="${{ secrets.OPENAI_DEPLOYMENT_NAME }}" \
+            --parameters emailRecipient="${{ secrets.EMAIL_RECIPIENT }}" \
+            --parameters rssFeedUrl="https://www.microsoft.com/en-us/security/blog/feed/"
           
-          echo "âœ… Workflow deployed successfully"
+          echo " Workflow deployed successfully"
 
   configure-managed-identity:
     name: Configure Managed Identity
@@ -174,14 +158,14 @@ jobs:
           
           echo "Logic App Principal ID: $PRINCIPAL_ID"
           
-          # Azure OpenAI ë¦¬ì†ŒìŠ¤ì— ì—­í•  í• ë‹¹
+          # Azure OpenAI ë¦¬ì†Œ?¤ì— ??•  ? ë‹¹
           az role assignment create \
             --assignee $PRINCIPAL_ID \
             --role "Cognitive Services OpenAI User" \
             --scope ${{ secrets.OPENAI_RESOURCE_ID }} \
             || echo "Role assignment already exists"
           
-          echo "âœ… Managed Identity configured successfully"
+          echo "??Managed Identity configured successfully"
 
   integration-test:
     name: Run Integration Test
@@ -202,16 +186,16 @@ jobs:
           
           echo "Triggering Logic App: $LOGIC_APP_NAME"
           
-          # ìˆ˜ë™ íŠ¸ë¦¬ê±° ì‹¤í–‰
+          # ?˜ë™ ?¸ë¦¬ê±??¤í–‰
           az logic workflow run trigger \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --name $LOGIC_APP_NAME \
             --trigger-name Recurrence
           
-          echo "â³ Waiting for workflow to complete (30 seconds)..."
+          echo "??Waiting for workflow to complete (30 seconds)..."
           sleep 30
           
-          # ìµœê·¼ ì‹¤í–‰ ê²°ê³¼ í™•ì¸
+          # ìµœê·¼ ?¤í–‰ ê²°ê³¼ ?•ì¸
           RUN_STATUS=$(az logic workflow run list \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --workflow-name $LOGIC_APP_NAME \
@@ -221,9 +205,9 @@ jobs:
           echo "Run Status: $RUN_STATUS"
           
           if [ "$RUN_STATUS" == "Succeeded" ]; then
-            echo "âœ… Integration test passed"
+            echo "??Integration test passed"
           else
-            echo "âŒ Integration test failed"
+            echo "??Integration test failed"
             exit 1
           fi
 
@@ -237,11 +221,11 @@ jobs:
         if: needs.integration-test.result == 'success'
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
-          echo "âœ… Deployment to $ENV environment completed successfully"
+          echo "??Deployment to $ENV environment completed successfully"
           
       - name: Send failure notification
         if: needs.integration-test.result == 'failure'
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
-          echo "âŒ Deployment to $ENV environment failed"
+          echo "??Deployment to $ENV environment failed"
           exit 1
