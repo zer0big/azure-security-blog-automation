@@ -132,14 +132,7 @@ jobs:
             --arg emailRecipient "${{ secrets.EMAIL_RECIPIENT }}" \
             --arg rssFeedUrl "https://www.microsoft.com/en-us/security/blog/feed/" \
             '{
-              properties: {
-                definition: $def[0],
-                parameters: {
-                  openAiEndpoint: { value: $openAiEndpoint },
-                  openAiDeploymentName: { value: $openAiDeploymentName },
-                  emailRecipient: { value: $emailRecipient },
-                  rssFeedUrl: { value: $rssFeedUrl }
-                }
+              location: "koreacentral",
               }
             }' \
             > workflow-payload.json
