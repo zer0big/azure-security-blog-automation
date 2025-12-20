@@ -215,23 +215,17 @@ jobs:
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
           
           echo "Triggering Logic App: $LOGIC_APP_NAME"
-          
-          # ?섎룞 ?몃━嫄??ㅽ뻾
-          az logic workflow run trigger \
-            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
-            --name $LOGIC_APP_NAME \
-            --trigger-name Recurrence
-          
-          echo "??Waiting for workflow to complete (30 seconds)..."
+          # 수동 트리거 실행 (az rest 사용)
+          az rest --method POST \
+            --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/triggers/Recurrence/run?api-version=2016-06-01"
+
+          echo "⏳ Waiting for workflow to complete (30 seconds)..."
           sleep 30
-          
-          # 理쒓렐 ?ㅽ뻾 寃곌낵 ?뺤씤
-          RUN_STATUS=$(az logic workflow run list \
-            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
-            --workflow-name $LOGIC_APP_NAME \
-            --top 1 \
-            --query "[0].status" -o tsv)
-          
+
+          # 최근 실행 결과 확인 (az rest 사용)
+          RUN_STATUS=$(az rest --method GET \
+            --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs?api-version=2016-06-01&\$top=1" \
+            --query "value[0].status" -o tsv)
           echo "Run Status: $RUN_STATUS"
           
           if [ "$RUN_STATUS" == "Succeeded" ]; then
