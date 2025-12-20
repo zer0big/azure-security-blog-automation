@@ -163,6 +163,7 @@ jobs:
           az rest \
             --method PUT \
             --uri "${LOGIC_APP_ID}?api-version=2019-05-01" \
+            --headers "Content-Type=application/json" \
             --body @workflow-payload.json
           
           echo " Workflow deployed successfully"
