@@ -124,6 +124,17 @@ jobs:
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
+          # Get connection IDs
+          RSS_CONN_ID=$(az deployment group show \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name main \
+            --query "properties.outputs.rssConnectionId.value" -o tsv)
+          
+          OFFICE365_CONN_ID=$(az deployment group show \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name main \
+            --query "properties.outputs.office365ConnectionId.value" -o tsv)
+
           # Workflow payload 생성 (jq로 안전하게 구성)
           jq -n \
             --slurpfile def workflows/security-blog-summarizer.json \
@@ -131,11 +142,27 @@ jobs:
             --arg openAiDeploymentName "${{ secrets.OPENAI_DEPLOYMENT_NAME }}" \
             --arg emailRecipient "${{ secrets.EMAIL_RECIPIENT }}" \
             --arg rssFeedUrl "https://www.microsoft.com/en-us/security/blog/feed/" \
+            --arg rssConnId "$RSS_CONN_ID" \
+            --arg office365ConnId "$OFFICE365_CONN_ID" \
             '{
               location: "koreacentral",
               properties: {
                 definition: $def[0],
                 parameters: {
+                  "$connections": {
+                    value: {
+                      rss: {
+                        connectionId: $rssConnId,
+                        connectionName: "rss",
+                        id: "/subscriptions/\(env.AZURE_SUBSCRIPTION_ID)/providers/Microsoft.Web/locations/koreacentral/managedApis/rss"
+                      },
+                      office365: {
+                        connectionId: $office365ConnId,
+                        connectionName: "office365",
+                        id: "/subscriptions/\(env.AZURE_SUBSCRIPTION_ID)/providers/Microsoft.Web/locations/koreacentral/managedApis/office365"
+                      }
+                    }
+                  },
                   openAiEndpoint: { value: $openAiEndpoint },
                   openAiDeploymentName: { value: $openAiDeploymentName },
                   emailRecipient: { value: $emailRecipient },
