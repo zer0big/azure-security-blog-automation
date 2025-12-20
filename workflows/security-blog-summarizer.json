@@ -1,212 +1,102 @@
 ﻿{
-  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-  "contentVersion": "1.0.0.0",
-  "parameters": {
-    "$connections": {
-      "defaultValue": {},
-      "type": "Object"
-    },
-    "openAiEndpoint": {
-      "type": "String",
-      "metadata": {
-        "description": "Azure OpenAI API Endpoint (예: https://your-openai.openai.azure.com/)"
-      }
-    },
-    "openAiDeploymentName": {
-      "type": "String",
-      "defaultValue": "gpt-4",
-      "metadata": {
-        "description": "Azure OpenAI GPT-4 Deployment Name"
-      }
-    },
-    "emailRecipient": {
-      "type": "String",
-      "metadata": {
-        "description": "이메일 수신자 주소"
-      }
-    },
-    "rssFeedUrl": {
-      "type": "String",
-      "defaultValue": "https://www.microsoft.com/en-us/security/blog/feed/",
-      "metadata": {
-        "description": "RSS 피드 URL"
-      }
-    }
-  },
-  "triggers": {
-    "Recurrence": {
-      "recurrence": {
-        "frequency": "Day",
-        "interval": 1,
-        "schedule": {
-          "hours": [
-            "9"
-          ],
-          "minutes": [
-            0
-          ]
-        },
-        "timeZone": "Korea Standard Time"
-      },
-      "type": "Recurrence"
-    }
-  },
-  "actions": {
-    "List_all_RSS_feed_items": {
-      "runAfter": {},
-      "type": "ApiConnection",
-      "inputs": {
-        "host": {
-          "connection": {
-            "name": "@parameters('$connections')['rss']['connectionId']"
-          }
-        },
-        "method": "get",
-        "path": "/ListFeedItems",
-        "queries": {
-          "feedUrl": "@parameters('rssFeedUrl')",
-          "since": "@{addDays(utcNow(), -1)}"
-        }
-      }
-    },
-    "Condition_Check_New_Posts": {
-      "actions": {
-        "For_each_RSS_Item": {
-          "foreach": "@body('List_all_RSS_feed_items')",
-          "actions": {
-            "Try_Summarize_and_Send": {
-              "actions": {
-                "HTTP_Call_Azure_OpenAI": {
-                  "runAfter": {},
-                  "type": "Http",
-                  "inputs": {
-                    "authentication": {
-                      "type": "ManagedServiceIdentity"
-                    },
-                    "body": {
-                      "messages": [
-                        {
-                          "role": "system",
-                          "content": "당신은 보안 전문가입니다. 제공된 보안 블로그 게시물을 한국어로 3-5문장으로 요약해주세요. 핵심 내용과 실무 영향을 중심으로 작성하세요."
-                        },
-                        {
-                          "role": "user",
-                          "content": "@{concat('제목: ', items('For_each_RSS_Item')?['title'], '\n\n내용: ', items('For_each_RSS_Item')?['summary'])}"
-                        }
-                      ],
-                      "max_tokens": 500,
-                      "temperature": 0.3
-                    },
-                    "headers": {
-                      "Content-Type": "application/json"
-                    },
-                    "method": "POST",
-                    "uri": "@{parameters('openAiEndpoint')}/openai/deployments/@{parameters('openAiDeploymentName')}/chat/completions?api-version=2024-06-01",
-                    "retryPolicy": {
-                      "type": "exponential",
-                      "count": 3,
-                      "interval": "PT10S",
-                      "maximumInterval": "PT1M",
-                      "minimumInterval": "PT10S"
-                    }
-                  }
+    "triggers":  {
+                     "Recurrence":  {
+                                        "recurrence":  {
+                                                           "frequency":  "Day",
+                                                           "interval":  1,
+                                                           "schedule":  {
+                                                                            "hours":  [
+                                                                                          "9"
+                                                                                      ],
+                                                                            "minutes":  [
+                                                                                            0
+                                                                                        ]
+                                                                        },
+                                                           "timeZone":  "Korea Standard Time"
+                                                       },
+                                        "type":  "Recurrence"
+                                    }
+                 },
+    "actions":  {
+                    "List_RSS":  {
+                                     "inputs":  {
+                                                    "host":  {
+                                                                 "connection":  {
+                                                                                    "referenceName":  "rss"
+                                                                                }
+                                                             },
+                                                    "path":  "/ListFeedItems",
+                                                    "queries":  {
+                                                                    "feedUrl":  "@parameters(\u0027rssFeedUrl\u0027)"
+                                                                },
+                                                    "method":  "get"
+                                                },
+                                     "runAfter":  {
+
+                                                  },
+                                     "type":  "ApiConnection"
+                                 },
+                    "Send_Test_Email":  {
+                                            "inputs":  {
+                                                           "body":  {
+                                                                        "Subject":  "✅ Logic App 테스트 - @{utcNow()}",
+                                                                        "To":  "@parameters(\u0027emailRecipient\u0027)",
+                                                                        "Body":  "\u003ch2\u003eLogic App 동작 확인 테스트\u003c/h2\u003e\u003cp\u003e\u003cstrong\u003e이메일 발송 성공!\u003c/strong\u003e\u003c/p\u003e\u003cp\u003e수신자: @{parameters(\u0027emailRecipient\u0027)}\u003c/p\u003e\u003cp\u003e시간: @{utcNow()}\u003c/p\u003e\u003chr/\u003e\u003cp\u003eRSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.\u003c/p\u003e",
+                                                                        "Importance":  "High"
+                                                                    },
+                                                           "host":  {
+                                                                        "connection":  {
+                                                                                           "referenceName":  "office365"
+                                                                                       }
+                                                                    },
+                                                           "path":  "/v2/Mail",
+                                                           "method":  "post"
+                                                       },
+                                            "runAfter":  {
+                                                             "List_RSS":  [
+                                                                              "Succeeded"
+                                                                          ]
+                                                         },
+                                            "type":  "ApiConnection"
+                                        }
                 },
-                "Send_an_email_(V2)": {
-                  "runAfter": {
-                    "HTTP_Call_Azure_OpenAI": [
-                      "Succeeded"
-                    ]
-                  },
-                  "type": "ApiConnection",
-                  "inputs": {
-                    "body": {
-                      "Body": "<html>\n<body>\n<h2>🔒 Microsoft Security Blog 업데이트</h2>\n<hr>\n<h3><a href=\"@{items('For_each_RSS_Item')?['primaryLink']}\">@{items('For_each_RSS_Item')?['title']}</a></h3>\n<p><strong>게시일:</strong> @{items('For_each_RSS_Item')?['publishDate']}</p>\n<p><strong>작성자:</strong> @{items('For_each_RSS_Item')?['author']}</p>\n<hr>\n<h4>📝 AI 요약 (GPT-4)</h4>\n<p>@{body('HTTP_Call_Azure_OpenAI')?['choices']?[0]?['message']?['content']}</p>\n<hr>\n<p><a href=\"@{items('For_each_RSS_Item')?['primaryLink']}\">전체 내용 보기 →</a></p>\n<br>\n<p style=\"color: #888; font-size: 12px;\">이 이메일은 Azure Logic Apps로 자동 생성되었습니다.</p>\n</body>\n</html>",
-                      "Subject": "[Security Alert] @{items('For_each_RSS_Item')?['title']}",
-                      "To": "@parameters('emailRecipient')",
-                      "Importance": "Normal"
-                    },
-                    "host": {
-                      "connection": {
-                        "name": "@parameters('$connections')['office365']['connectionId']"
-                      }
-                    },
-                    "method": "post",
-                    "path": "/v2/Mail"
-                  }
-                }
-              },
-              "runAfter": {},
-              "type": "Scope"
-            },
-            "Catch_Errors": {
-              "actions": {
-                "Send_Error_Notification": {
-                  "runAfter": {},
-                  "type": "ApiConnection",
-                  "inputs": {
-                    "body": {
-                      "Body": "<html>\n<body>\n<h2>⚠️ Logic App 워크플로 오류 발생</h2>\n<hr>\n<p><strong>게시물:</strong> @{items('For_each_RSS_Item')?['title']}</p>\n<p><strong>오류 시각:</strong> @{utcNow()}</p>\n<p><strong>오류 내용:</strong></p>\n<pre>@{result('Try_Summarize_and_Send')}</pre>\n<hr>\n<p>Azure Portal에서 Run History를 확인하세요.</p>\n</body>\n</html>",
-                      "Subject": "[Error] Security Blog Automation 실패",
-                      "To": "@parameters('emailRecipient')",
-                      "Importance": "High"
-                    },
-                    "host": {
-                      "connection": {
-                        "name": "@parameters('$connections')['office365']['connectionId']"
-                      }
-                    },
-                    "method": "post",
-                    "path": "/v2/Mail"
-                  }
-                }
-              },
-              "runAfter": {
-                "Try_Summarize_and_Send": [
-                  "Failed",
-                  "Skipped",
-                  "TimedOut"
-                ]
-              },
-              "type": "Scope"
-            }
-          },
-          "runAfter": {},
-          "type": "Foreach",
-          "runtimeConfiguration": {
-            "concurrency": {
-              "repetitions": 1
-            }
-          }
-        }
-      },
-      "runAfter": {
-        "List_all_RSS_feed_items": [
-          "Succeeded"
-        ]
-      },
-      "else": {
-        "actions": {
-          "Terminate_No_New_Posts": {
-            "runAfter": {},
-            "type": "Terminate",
-            "inputs": {
-              "runStatus": "Succeeded"
-            }
-          }
-        }
-      },
-      "expression": {
-        "and": [
-          {
-            "greater": [
-              "@length(body('List_all_RSS_feed_items'))",
-              0
-            ]
-          }
-        ]
-      },
-      "type": "If"
-    }
-  },
-  "outputs": {}
+    "contentVersion":  "1.0.0.0",
+    "outputs":  {
+
+                },
+    "parameters":  {
+                       "$connections":  {
+                                            "defaultValue":  {
+
+                                                             },
+                                            "type":  "Object"
+                                        },
+                       "openAiEndpoint":  {
+                                              "type":  "String",
+                                              "metadata":  {
+                                                               "description":  "Azure OpenAI API Endpoint (예: https://your-openai.openai.azure.com/)"
+                                                           }
+                                          },
+                       "openAiDeploymentName":  {
+                                                    "type":  "String",
+                                                    "defaultValue":  "gpt-4",
+                                                    "metadata":  {
+                                                                     "description":  "Azure OpenAI GPT-4 Deployment Name"
+                                                                 }
+                                                },
+                       "emailRecipient":  {
+                                              "type":  "String",
+                                              "metadata":  {
+                                                               "description":  "이메일 수신자 주소"
+                                                           }
+                                          },
+                       "rssFeedUrl":  {
+                                          "type":  "String",
+                                          "defaultValue":  "https://www.microsoft.com/en-us/security/blog/feed/",
+                                          "metadata":  {
+                                                           "description":  "RSS 피드 URL"
+                                                       }
+                                      }
+                   },
+    "$schema":  "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#"
 }
