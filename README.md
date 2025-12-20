@@ -1,4 +1,4 @@
-# Azure Security Blog Automation
+﻿# Azure Security Blog Automation
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Azure](https://img.shields.io/badge/Azure-Logic%20Apps-0078D4?logo=microsoftazure)](https://azure.microsoft.com/services/logic-apps/)
@@ -246,8 +246,8 @@ azure-security-blog-automation/
 
 **Kim Young Dae (zer0big)**
 - GitHub: [@zer0big](https://github.com/zer0big)
-- Company: Bespin Global
-- Role: Microsoft Azure MVP, MigAzure Team Lead
+- Company: TDG
+- Role: Microsoft Azure MVP, Microsoft Certified Trainer
 
 ## 🙏 감사의 말
 
