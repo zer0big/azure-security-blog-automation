@@ -133,15 +133,14 @@ jobs:
             --arg rssFeedUrl "https://www.microsoft.com/en-us/security/blog/feed/" \
             '{
               location: "koreacentral",
-              }
-            }' \
-            > workflow-payload.json
-          
-          # REST API로 업데이트
-          LOGIC_APP_ID=$(az logic workflow show \
-            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
-            --name $LOGIC_APP_NAME \
-            --query id -o tsv)
+              properties: {
+                definition: $def[0],
+                parameters: {
+                  openAiEndpoint: { value: $openAiEndpoint },
+                  openAiDeploymentName: { value: $openAiDeploymentName },
+                  emailRecipient: { value: $emailRecipient },
+                  rssFeedUrl: { value: $rssFeedUrl }
+                }
           
           az rest \
             --method PUT \
