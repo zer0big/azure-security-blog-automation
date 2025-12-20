@@ -1,0 +1,226 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - prod
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  RESOURCE_GROUP_PREFIX: rg-security-blog-automation
+
+jobs:
+  validate:
+    name: Validate Bicep Template
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate Bicep template
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          az deployment group validate \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --template-file infra/bicep/main.bicep \
+            --parameters @infra/bicep/parameters.${ENV}.json \
+            --verbose
+
+  deploy-infrastructure:
+    name: Deploy Infrastructure
+    needs: validate
+    runs-on: ubuntu-latest
+    outputs:
+      logic-app-name: ${{ steps.deploy.outputs.logicAppName }}
+      logic-app-id: ${{ steps.deploy.outputs.logicAppId }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Bicep template
+        id: deploy
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          
+          # Resource Group 존재 여부 확인 및 생성
+          if ! az group exists --name ${RESOURCE_GROUP_PREFIX}-${ENV}; then
+            echo "Creating resource group ${RESOURCE_GROUP_PREFIX}-${ENV}..."
+            az group create \
+              --name ${RESOURCE_GROUP_PREFIX}-${ENV} \
+              --location koreacentral \
+              --tags Environment=${ENV} Project=security-blog-automation ManagedBy=GitHubActions
+          fi
+          
+          # Bicep 배포
+          DEPLOYMENT_OUTPUT=$(az deployment group create \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --template-file infra/bicep/main.bicep \
+            --parameters @infra/bicep/parameters.${ENV}.json \
+            --parameters emailRecipient=${{ secrets.EMAIL_RECIPIENT }} \
+            --parameters openAiEndpoint=${{ secrets.OPENAI_ENDPOINT }} \
+            --parameters openAiDeploymentName=${{ secrets.OPENAI_DEPLOYMENT_NAME }} \
+            --output json)
+          
+          # Outputs 추출
+          LOGIC_APP_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppName.value')
+          LOGIC_APP_ID=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppId.value')
+          
+          echo "logicAppName=$LOGIC_APP_NAME" >> $GITHUB_OUTPUT
+          echo "logicAppId=$LOGIC_APP_ID" >> $GITHUB_OUTPUT
+          
+          echo "✅ Infrastructure deployed successfully"
+          echo "Logic App: $LOGIC_APP_NAME"
+
+  deploy-workflow:
+    name: Deploy Logic App Workflow
+    needs: deploy-infrastructure
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Update Logic App workflow
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
+          
+          echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
+          
+          az logic workflow update \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name $LOGIC_APP_NAME \
+            --definition @workflows/security-blog-summarizer.json
+          
+          echo "✅ Workflow deployed successfully"
+
+  configure-managed-identity:
+    name: Configure Managed Identity
+    needs: [deploy-infrastructure, deploy-workflow]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Assign OpenAI role to Logic App
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
+          
+          # Logic App Managed Identity Principal ID 추출
+          PRINCIPAL_ID=$(az logic workflow show \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name $LOGIC_APP_NAME \
+            --query identity.principalId -o tsv)
+          
+          echo "Logic App Principal ID: $PRINCIPAL_ID"
+          
+          # Azure OpenAI 리소스에 역할 할당
+          az role assignment create \
+            --assignee $PRINCIPAL_ID \
+            --role "Cognitive Services OpenAI User" \
+            --scope ${{ secrets.OPENAI_RESOURCE_ID }} \
+            || echo "Role assignment already exists"
+          
+          echo "✅ Managed Identity configured successfully"
+
+  integration-test:
+    name: Run Integration Test
+    needs: configure-managed-identity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Trigger Logic App manually
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
+          
+          echo "Triggering Logic App: $LOGIC_APP_NAME"
+          
+          # 수동 트리거 실행
+          az logic workflow run trigger \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name $LOGIC_APP_NAME \
+            --trigger-name Recurrence
+          
+          echo "⏳ Waiting for workflow to complete (30 seconds)..."
+          sleep 30
+          
+          # 최근 실행 결과 확인
+          RUN_STATUS=$(az logic workflow run list \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --workflow-name $LOGIC_APP_NAME \
+            --top 1 \
+            --query "[0].status" -o tsv)
+          
+          echo "Run Status: $RUN_STATUS"
+          
+          if [ "$RUN_STATUS" == "Succeeded" ]; then
+            echo "✅ Integration test passed"
+          else
+            echo "❌ Integration test failed"
+            exit 1
+          fi
+
+  notify:
+    name: Send Deployment Notification
+    needs: integration-test
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Send success notification
+        if: needs.integration-test.result == 'success'
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          echo "✅ Deployment to $ENV environment completed successfully"
+          
+      - name: Send failure notification
+        if: needs.integration-test.result == 'failure'
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          echo "❌ Deployment to $ENV environment failed"
+          exit 1
