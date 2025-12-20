@@ -14,7 +14,7 @@ Azure Logic Apps 보안 블로그 자동 요약 시스템의 CI/CD 파이프라�
 
 ### 트리거
 
-- **Push**: `master` 브랜치에 Push 시 자동 실행 (dev 환경)
+- **Push**: `main` 브랜치에 Push 시 자동 실행 (dev 환경)
 - **Manual**: GitHub Actions UI에서 수동 실행 (dev/prod 선택 가능)
 
 ### Jobs 구조
@@ -98,7 +98,7 @@ az ad app federated-credential create \
   --parameters '{
     "name": "github-actions-oidc",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:zer0big/azure-security-blog-automation:ref:refs/heads/master",
+    "subject": "repo:zer0big/azure-security-blog-automation:ref:refs/heads/main",
     "audiences": ["api://AzureADTokenExchange"]
   }'
 ```
@@ -175,7 +175,7 @@ az logic workflow update \
 ### 시나리오 1: 개발 환경 자동 배포
 
 1. 로컬에서 코드 수정
-2. `git push origin master`
+2. `git push origin main`
 3. GitHub Actions 자동 실행 (dev 환경)
 4. 5-10분 후 배포 완료
 
@@ -238,7 +238,7 @@ Error: Login failed with Error: ...
 
 **해결**:
 - Federated Credential 설정 확인
-- Subject 값 정확성 확인: `repo:zer0big/azure-security-blog-automation:ref:refs/heads/master`
+- Subject 값 정확성 확인: `repo:zer0big/azure-security-blog-automation:ref:refs/heads/main`
 
 ### 문제 2: Bicep 배포 실패
 
