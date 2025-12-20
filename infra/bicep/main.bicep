@@ -153,20 +153,12 @@ resource logicAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-p
       {
         category: 'WorkflowRuntime'
         enabled: true
-        retentionPolicy: {
-          enabled: true
-          days: 30
-        }
       }
     ]
     metrics: [
       {
         category: 'AllMetrics'
         enabled: true
-        retentionPolicy: {
-          enabled: true
-          days: 30
-        }
       }
     ]
   }
