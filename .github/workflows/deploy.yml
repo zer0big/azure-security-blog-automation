@@ -121,19 +121,43 @@ jobs:
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
-          # Logic App workflow 업데이트 (definition string으로 직접 전달)
-          az logic workflow update \
-            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
-            --name $LOGIC_APP_NAME \
-            --definition "$(cat workflows/security-blog-summarizer.json | jq -c | jq -R -s)" \
-            --parameters openAiEndpoint="${{ secrets.OPENAI_ENDPOINT }}" \
-            --parameters openAiDeploymentName="${{ secrets.OPENAI_DEPLOYMENT_NAME }}" \
-            --parameters emailRecipient="${{ secrets.EMAIL_RECIPIENT }}" \
-            --parameters rssFeedUrl="https://www.microsoft.com/en-us/security/blog/feed/"
+          # Workflow JSON 생성
+          cat > workflow-update.json <<'EOFWORKFLOW'
+{
+  "properties": {
+    "definition": DEFINITION_PLACEHOLDER,
+    "parameters": {
+      "openAiEndpoint": {
+        "value": "OPENAI_ENDPOINT_PLACEHOLDER"
+      },
+      "openAiDeploymentName": {
+        "value": "OPENAI_DEPLOYMENT_NAME_PLACEHOLDER"
+      },
+      "emailRecipient": {
+        "value": "EMAIL_RECIPIENT_PLACEHOLDER"
+      },
+      "rssFeedUrl": {
+        "value": "https://www.microsoft.com/en-us/security/blog/feed/"
+      }
+    }
+  }
+}
+EOFWORKFLOW
+
+          # Replace placeholders
+          WORKFLOW_DEF=$(cat workflows/security-blog-summarizer.json | jq -c)
+          sed -i "s|DEFINITION_PLACEHOLDER|$WORKFLOW_DEF|" workflow-update.json
+          sed -i "s|OPENAI_ENDPOINT_PLACEHOLDER|${{ secrets.OPENAI_ENDPOINT }}|" workflow-update.json
+          sed -i "s|OPENAI_DEPLOYMENT_NAME_PLACEHOLDER|${{ secrets.OPENAI_DEPLOYMENT_NAME }}|" workflow-update.json
+          sed -i "s|EMAIL_RECIPIENT_PLACEHOLDER|${{ secrets.EMAIL_RECIPIENT }}|" workflow-update.json
+          
+          # REST API로 업데이트
+          az rest \
+            --method PUT \
+            --uri "$(az logic workflow show --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} --name $LOGIC_APP_NAME --query id -o tsv)?api-version=2019-05-01" \
+            --body @workflow-update.json
           
           echo " Workflow deployed successfully"
-
-  configure-managed-identity:
     name: Configure Managed Identity
     needs: [deploy-infrastructure, deploy-workflow]
     runs-on: ubuntu-latest
