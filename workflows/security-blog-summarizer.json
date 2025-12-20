@@ -69,12 +69,12 @@
                                             "defaultValue":  {
                                                                  "office365":  {
                                                                                    "connectionName":  "office365",
-                                                                                   "connectionId":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/resourceGroups/RG-Advisor-Notification/providers/Microsoft.Web/connections/office365",
+                                                                                   "connectionId":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Web/connections/office365-dev-security-blog-automation",
                                                                                    "id":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/providers/Microsoft.Web/locations/koreacentral/managedApis/office365"
                                                                                },
                                                                  "rss":  {
                                                                              "connectionName":  "rss",
-                                                                             "connectionId":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/resourceGroups/rg-dev-security-blog-automation/providers/Microsoft.Web/connections/rssConnection",
+                                                                             "connectionId":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Web/connections/rss-dev-security-blog-automation",
                                                                              "id":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/providers/Microsoft.Web/locations/koreacentral/managedApis/rss"
                                                                          }
                                                              },
