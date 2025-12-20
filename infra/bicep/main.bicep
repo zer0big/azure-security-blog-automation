@@ -1,4 +1,4 @@
-// ============================================================================
+﻿// ============================================================================
 // Azure Logic Apps 보안 블로그 자동 요약 시스템 - Main Bicep Template
 // ============================================================================
 // Well-Architected Framework 원칙 적용:
@@ -25,6 +25,10 @@ param location string = resourceGroup().location
 @description('프로젝트 이름')
 param projectName string = 'security-blog-automation'
 
+@description('생성 날짜 (YYYY-MM-DD 형식)')
+param currentDate string = utcNow('yyyy-MM-dd')
+
+
 @description('OpenAI API Endpoint (선택)')
 param openAiEndpoint string = ''
 
@@ -47,7 +51,7 @@ var tags = {
   Project: projectName
   ManagedBy: 'Bicep'
   CostCenter: 'Innovation'
-  CreatedDate: utcNow('yyyy-MM-dd')
+  CreatedDate: currentDate
 }
 
 // Resource 명명 규칙 (Azure Best Practices)
