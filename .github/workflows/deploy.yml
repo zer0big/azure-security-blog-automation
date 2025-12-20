@@ -191,6 +191,40 @@ EOFWORKFLOW
           
           echo "??Managed Identity configured successfully"
 
+
+  configure-managed-identity:
+    name: Configure Managed Identity
+    needs: [deploy-infrastructure, deploy-workflow]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Assign OpenAI role to Logic App
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
+          
+          # Logic App Managed Identity Principal ID 추출
+          PRINCIPAL_ID=$(az logic workflow show \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name $LOGIC_APP_NAME \
+            --query identity.principalId -o tsv)
+          
+          echo "Logic App Principal ID: $PRINCIPAL_ID"
+          
+          # Azure OpenAI 리소스에 역할 할당
+          az role assignment create \
+            --assignee $PRINCIPAL_ID \
+            --role "Cognitive Services OpenAI User" \
+            --scope ${{ secrets.OPENAI_RESOURCE_ID }} \
+            || echo "Role assignment already exists"
+          
+          echo " Managed Identity configured successfully"
   integration-test:
     name: Run Integration Test
     needs: configure-managed-identity
