@@ -1,7 +1,9 @@
-{
-    "outputs":  {
+ï»¿{
+    "$schema":  "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion":  "1.0.0.0",
+    "parameters":  {
 
-                },
+                   },
     "triggers":  {
                      "Recurrence":  {
                                         "recurrence":  {
@@ -42,9 +44,9 @@
                     "Send_Test_Email":  {
                                             "inputs":  {
                                                            "body":  {
-                                                                        "Subject":  "? Logic App Å×½ºÆ® - @{utcNow()}",
+                                                                        "Subject":  "? Logic App í…ŒìŠ¤íŠ¸ - @{utcNow()}",
                                                                         "To":  "@parameters(\u0027emailRecipient\u0027)",
-                                                                        "Body":  "\u003ch2\u003eLogic App µ¿ÀÛ È®ÀÎ Å×½ºÆ®\u003c/h2\u003e\u003cp\u003e\u003cstrong\u003eÀÌ¸ŞÀÏ ¹ß¼Û ¼º°ø!\u003c/strong\u003e\u003c/p\u003e\u003cp\u003e¼ö½ÅÀÚ: @{parameters(\u0027emailRecipient\u0027)}\u003c/p\u003e\u003cp\u003e½Ã°£: @{utcNow()}\u003c/p\u003e\u003chr/\u003e\u003cp\u003eRSS ÇÇµå Á¶È¸ ¿Ï·á. ÀÌ ÀÌ¸ŞÀÏÀÌ µµÂøÇß´Ù¸é ÀüÃ¼ ½Ã½ºÅÛÀÌ Á¤»ó ÀÛµ¿ ÁßÀÔ´Ï´Ù.\u003c/p\u003e",
+                                                                        "Body":  "\u003ch2\u003eLogic App ë™ì‘ í™•ì¸ í…ŒìŠ¤íŠ¸\u003c/h2\u003e\u003cp\u003e\u003cstrong\u003eì´ë©”ì¼ ë°œì†¡ ì„±ê³µ!\u003c/strong\u003e\u003c/p\u003e\u003cp\u003eìˆ˜ì‹ ì: @{parameters(\u0027emailRecipient\u0027)}\u003c/p\u003e\u003cp\u003eì‹œê°„: @{utcNow()}\u003c/p\u003e\u003chr/\u003e\u003cp\u003eRSS í”¼ë“œ ì¡°íšŒ ì™„ë£Œ. ì´ ì´ë©”ì¼ì´ ë„ì°©í–ˆë‹¤ë©´ ì „ì²´ ì‹œìŠ¤í…œì´ ì •ìƒ ì‘ë™ ì¤‘ì…ë‹ˆë‹¤.\u003c/p\u003e",
                                                                         "Importance":  "High"
                                                                     },
                                                            "host":  {
@@ -63,5 +65,7 @@
                                             "type":  "ApiConnection"
                                         }
                 },
-    "contentVersion":  "1.0.0.0"
+    "outputs":  {
+
+                }
 }
