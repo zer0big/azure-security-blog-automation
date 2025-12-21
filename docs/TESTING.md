@@ -146,8 +146,59 @@ az logic workflow show \
 **검증 항목**:
 - ✅ 이메일 수신 확인 (5분 이내)
 - ✅ HTML 형식 정상 렌더링
+- ✅ 헤더 색상 가시성 (밝은 파란색 배경 + Azure 파란색 텍스트)
 - ✅ 제목, 본문, 링크 포함
 - ✅ 스팸 폴더가 아닌 받은편지함
+- ✅ 소스 배지 표시 (Multi-RSS 적용 시)
+
+### 4. 자동화 테스트 스크립트 ⭐ NEW
+
+**목적**: 전체 워크플로를 자동으로 테스트
+
+**스크립트**: `test-blue-header.ps1`
+
+**기능**:
+1. ProcessedPosts 테이블 정리 (10개 엔티티 삭제)
+2. Logic App 워크플로 REST API 트리거
+3. 30초 대기
+4. 최신 실행 상태 확인
+5. 컬러 코딩된 결과 출력
+
+**사용법**:
+```powershell
+# 저장소 루트 디렉토리에서 실행
+.\test-blue-header.ps1
+```
+
+**예상 출력**:
+```
+⏳ Deleting 10 entities from ProcessedPosts table...
+✓ Deleted: 1tVUus8OgEyjLQSgO4v-YJXXERG_80w4sYLN11WzzSM
+✓ Deleted: 4PW-DokHGTP_e0jvgstySNFCWhunXS6l0SzJhe6iBKo
+...
+
+✅ Table cleaned! Triggering workflow...
+⏳ Waiting 30 seconds for workflow to complete...
+
+Latest Run:
+  Name: 08584352749674094743258665769CU01
+  Status: Succeeded
+  Start: 2025-12-21T15:45:18Z
+  End: 2025-12-21T15:45:36Z
+
+✅ Workflow succeeded! Check your email for the new blue header!
+```
+
+**검증 항목**:
+- ✅ 모든 엔티티 삭제 성공
+- ✅ 워크플로 트리거 성공
+- ✅ 실행 상태: Succeeded
+- ✅ 이메일 수신 확인
+
+**효과**:
+- 수동 테스트 12단계 → 자동 1단계
+- 테스트 시간: ~5분 → ~1분
+- 일관된 테스트 절차
 
 ## 🔗 통합 테스트
 

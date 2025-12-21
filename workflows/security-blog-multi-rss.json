@@ -1,0 +1,227 @@
+{
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "$connections": {
+      "type": "Object",
+      "defaultValue": {}
+    },
+    "rssFeedUrls": {
+      "type": "Array",
+      "defaultValue": [
+        {
+          "url": "https://www.microsoft.com/en-us/security/blog/feed/",
+          "sourceName": "Microsoft Security Blog"
+        },
+        {
+          "url": "https://azure.microsoft.com/en-us/blog/topics/security/feed/",
+          "sourceName": "Azure Security Blog"
+        }
+      ]
+    },
+    "emailRecipient": {
+      "type": "String",
+      "defaultValue": "azure-mvp@zerobig.kr"
+    },
+    "functionsAppUrl": {
+      "type": "String",
+      "defaultValue": "https://func-dev-security-blog-automation.azurewebsites.net"
+    },
+    "functionKey": {
+      "type": "SecureString"
+    }
+  },
+  "triggers": {
+    "Recurrence": {
+      "type": "Recurrence",
+      "recurrence": {
+        "frequency": "Day",
+        "interval": 1,
+        "schedule": {
+          "hours": ["9"],
+          "minutes": [0]
+        },
+        "timeZone": "Korea Standard Time"
+      }
+    }
+  },
+  "actions": {
+    "Initialize_All_Posts": {
+      "type": "InitializeVariable",
+      "inputs": {
+        "variables": [
+          {
+            "name": "allPosts",
+            "type": "array",
+            "value": []
+          }
+        ]
+      },
+      "runAfter": {}
+    },
+    "For_Each_RSS_Feed": {
+      "type": "Foreach",
+      "foreach": "@parameters('rssFeedUrls')",
+      "actions": {
+        "List_RSS_Feed_Items": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['rss']['connectionId']"
+              }
+            },
+            "method": "get",
+            "path": "/ListFeedItems",
+            "queries": {
+              "feedUrl": "@{items('For_Each_RSS_Feed')['url']}"
+            }
+          },
+          "runAfter": {}
+        },
+        "For_Each_RSS_Item": {
+          "type": "Foreach",
+          "foreach": "@body('List_RSS_Feed_Items')",
+          "actions": {
+            "Check_Duplicate": {
+              "type": "Http",
+              "inputs": {
+                "method": "POST",
+                "uri": "@{parameters('functionsAppUrl')}/api/CheckDuplicate?code=@{parameters('functionKey')}",
+                "headers": {
+                  "Content-Type": "application/json"
+                },
+                "body": {
+                  "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                  "sourceName": "@{items('For_Each_RSS_Feed')['sourceName']}"
+                }
+              },
+              "runAfter": {}
+            },
+            "Condition_Is_New": {
+              "type": "If",
+              "expression": {
+                "and": [
+                  {
+                    "equals": [
+                      "@body('Check_Duplicate')?['isDuplicate']",
+                      false
+                    ]
+                  }
+                ]
+              },
+              "actions": {
+                "Append_To_All_Posts": {
+                  "type": "AppendToArrayVariable",
+                  "inputs": {
+                    "name": "allPosts",
+                    "value": {
+                      "title": "@{items('For_Each_RSS_Item')?['title']}",
+                      "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                      "publishDate": "@{items('For_Each_RSS_Item')?['publishDate']}",
+                      "summary": "@{items('For_Each_RSS_Item')?['summary']}",
+                      "sourceName": "@{items('For_Each_RSS_Feed')['sourceName']}"
+                    }
+                  }
+                },
+                "Insert_To_Table_Storage": {
+                  "type": "Http",
+                  "inputs": {
+                    "method": "POST",
+                    "uri": "@{parameters('functionsAppUrl')}/api/InsertProcessed?code=@{parameters('functionKey')}",
+                    "headers": {
+                      "Content-Type": "application/json"
+                    },
+                    "body": {
+                      "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                      "title": "@{items('For_Each_RSS_Item')?['title']}",
+                      "publishDate": "@{items('For_Each_RSS_Item')?['publishDate']}",
+                      "sourceName": "@{items('For_Each_RSS_Feed')['sourceName']}"
+                    }
+                  },
+                  "runAfter": {
+                    "Append_To_All_Posts": ["Succeeded"]
+                  }
+                }
+              },
+              "runAfter": {
+                "Check_Duplicate": ["Succeeded"]
+              }
+            }
+          },
+          "runAfter": {
+            "List_RSS_Feed_Items": ["Succeeded"]
+          },
+          "runtimeConfiguration": {
+            "concurrency": {
+              "repetitions": 1
+            }
+          }
+        }
+      },
+      "runAfter": {
+        "Initialize_All_Posts": ["Succeeded"]
+      },
+      "runtimeConfiguration": {
+        "concurrency": {
+          "repetitions": 1
+        }
+      }
+    },
+    "Condition_Has_New_Posts": {
+      "type": "If",
+      "expression": {
+        "and": [
+          {
+            "greater": [
+              "@length(variables('allPosts'))",
+              0
+            ]
+          }
+        ]
+      },
+      "actions": {
+        "Generate_Email_HTML": {
+          "type": "Http",
+          "inputs": {
+            "method": "POST",
+            "uri": "@{parameters('functionsAppUrl')}/api/GenerateEmailHtml",
+            "headers": {
+              "Content-Type": "application/json",
+              "x-functions-key": "@parameters('functionKey')"
+            },
+            "body": {
+              "posts": "@variables('allPosts')"
+            }
+          }
+        },
+        "Send_Consolidated_Email": {
+          "type": "ApiConnection",
+          "inputs": {
+            "host": {
+              "connection": {
+                "name": "@parameters('$connections')['office365']['connectionId']"
+              }
+            },
+            "method": "post",
+            "path": "/v2/Mail",
+            "body": {
+              "To": "@parameters('emailRecipient')",
+              "Subject": "@{body('Generate_Email_HTML').subject}",
+              "Body": "@{body('Generate_Email_HTML').html}",
+              "Importance": "Normal",
+              "IsHtml": true
+            }
+          },
+          "runAfter": {
+            "Generate_Email_HTML": ["Succeeded"]
+          }
+        }
+      },
+      "runAfter": {
+        "For_Each_RSS_Feed": ["Succeeded"]
+      }
+    }
+  },
+  "outputs": {}
+}

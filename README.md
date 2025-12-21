@@ -13,10 +13,12 @@
 ### 🎯 주요 기능
 
 - 📰 **자동 RSS 수집**: Microsoft Security Blog 매일 자동 확인
+- 🔄 **Multi-RSS 지원**: 여러 보안 블로그를 통합 모니터링 (확장 가능한 구조)
 - 🤖 **AI 3줄 요약**: Azure OpenAI GPT-4o로 핵심 내용 한글 3줄 요약
-- 📧 **HTML 이메일**: 카드 레이아웃 스타일의 반응형 이메일 발송
-- ⏰ **스케줄링**: 매일 오전 7시(KST) 자동 실행
-- 🔍 **스마트 필터링**: 24시간 내 신규 게시글 우선, 없으면 최근 5개 표시
+- 📧 **HTML 이메일**: 카드 레이아웃 스타일의 반응형 이메일 발송 (가시성 최적화)
+- 🏷️ **소스 배지**: 각 게시물의 출처를 시각적으로 표시
+- ⏰ **스케줄링**: 매일 오전 9시(KST) 자동 실행
+- 🔍 **스마트 중복 제거**: Azure Table Storage 기반 중복 게시물 필터링
 - 💰 **비용 최적화**: Consumption 요금제로 월 $1~$5 수준
 
 ### 💡 기대 효과
@@ -121,16 +123,26 @@ azure-security-blog-automation/
 ├── .github/
 │   └── workflows/          # GitHub Actions CI/CD 파이프라인
 │       └── deploy.yml
+├── functions/              # Azure Functions (.NET 8 Isolated)
+│   └── Functions/
+│       ├── CheckDuplicate.cs         # 중복 검사 API
+│       ├── InsertProcessed.cs        # 처리 이력 저장
+│       └── GenerateEmailHtml.cs      # HTML 이메일 생성 (색상 최적화)
 ├── infra/                  # Infrastructure as Code
 │   └── bicep/             # Azure Bicep 템플릿
 │       ├── main.bicep     # 메인 인프라 정의
-│       ├── parameters.json
+│       ├── parameters.dev.json
+│       ├── parameters.prod.json
 │       └── modules/       # 재사용 가능한 모듈
 ├── workflows/             # Logic Apps 워크플로 정의
-│   └── security-blog-summarizer.json
+│   ├── security-blog-consolidated.json      # 단일 RSS (현재 배포)
+│   └── security-blog-multi-rss.json         # Multi-RSS (확장 구조)
 ├── docs/                  # 문서
-│   ├── architecture.md
-│   └── deployment.md
+│   ├── OPERATIONS.md      # 운영 가이드
+│   ├── TESTING.md         # 테스트 가이드
+│   ├── MULTI-RSS-GUIDE.md # Multi-RSS 배포 가이드
+│   └── CHANGELOG.md       # 변경 이력
+├── test-blue-header.ps1   # 자동화 테스트 스크립트
 ├── .gitignore
 ├── README.md
 ├── LICENSE

@@ -31,8 +31,15 @@ az monitor activity-log list \
 **예상 결과**:
 ```
 Time                  Status     Operation
-2025-12-20 00:00:00  Succeeded  Run workflow
+2025-12-22 00:00:00  Succeeded  Run workflow
 ```
+
+**최근 배포 이력** (2025-12-22):
+- ✅ **이메일 헤더 색상 개선**: 밝은 파란색 배경 + Azure 파란색 텍스트
+- ✅ **Multi-RSS 아키텍처**: 확장 가능한 구조 준비 완료
+- ✅ **테스트 자동화**: test-blue-header.ps1 스크립트
+- Deployment ID: `11e6a528c6724505a5f703c49a480738`
+- Latest Run: `08584352749674094743258665769CU01`
 
 **점검 항목**:
 - ✅ 워크플로 실행 여부 (Run History)
@@ -65,9 +72,11 @@ requests
 
 **수신된 이메일 검토**:
 - ✅ 제목 형식: "[Azure Security] YYYY-MM-DD: X개의 새 보안 업데이트"
+- ✅ 헤더 가시성: 밝은 파란색 배경에 Azure 파란색 텍스트 (가독성 개선)
+- ✅ 소스 배지: Multi-RSS 적용 시 각 게시물 출처 표시
 - ✅ 요약 품질: 3-5문장, 한국어, 주요 내용 포함
 - ✅ 링크 유효성: 원본 블로그 링크 클릭 가능
-- ✅ HTML 렌더링: 깔끔한 포맷
+- ✅ HTML 렌더링: 깔끔한 포맷, 반응형 디자인
 
 **품질 문제 발견 시**:
 - GPT-4 프롬프트 튜닝 필요
