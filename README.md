@@ -4,19 +4,20 @@
 [![Azure](https://img.shields.io/badge/Azure-Logic%20Apps-0078D4?logo=microsoftazure)](https://azure.microsoft.com/services/logic-apps/)
 [![OpenAI](https://img.shields.io/badge/Azure-OpenAI-412991?logo=openai)](https://azure.microsoft.com/products/ai-services/openai-service)
 
-> **Microsoft Security Tech Community 블로그를 매일 자동으로 요약하여 이메일로 발송하는 서버리스 자동화 시스템**
+> **Microsoft Security Blog를 매일 자동으로 3줄 요약하여 이메일로 발송하는 서버리스 자동화 시스템**
 
 ## 📋 프로젝트 개요
 
-이 프로젝트는 Azure Logic Apps를 활용하여 Microsoft Security Tech Community의 보안 관련 블로그 게시물을 자동으로 수집, Azure OpenAI(GPT-4)로 요약하고, Office 365를 통해 이메일로 발송하는 완전 서버리스 솔루션입니다.
+이 프로젝트는 Azure Logic Apps를 활용하여 Microsoft Security Blog의 보안 관련 게시물을 자동으로 수집, Azure OpenAI(GPT-4o)로 3줄 한글 요약하고, Office 365를 통해 HTML 이메일로 발송하는 완전 서버리스 솔루션입니다.
 
 ### 🎯 주요 기능
 
-- 📰 **자동 RSS 수집**: Microsoft Security Tech Community 블로그 매일 자동 확인
-- 🤖 **AI 요약**: Azure OpenAI GPT-4로 핵심 내용 자동 요약
-- 📧 **이메일 발송**: Office 365 Outlook을 통한 자동 이메일 발송
-- ⏰ **스케줄링**: 매일 오전 9시(KST) 자동 실행
-- 💰 **비용 최적화**: Consumption 요금제로 월 $0.72~$7 수준
+- 📰 **자동 RSS 수집**: Microsoft Security Blog 매일 자동 확인
+- 🤖 **AI 3줄 요약**: Azure OpenAI GPT-4o로 핵심 내용 한글 3줄 요약
+- 📧 **HTML 이메일**: 카드 레이아웃 스타일의 반응형 이메일 발송
+- ⏰ **스케줄링**: 매일 오전 7시(KST) 자동 실행
+- 🔍 **스마트 필터링**: 24시간 내 신규 게시글 우선, 없으면 최근 5개 표시
+- 💰 **비용 최적화**: Consumption 요금제로 월 $1~$5 수준
 
 ## 🏗️ 아키텍처
 
@@ -26,19 +27,21 @@
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                  │
 │  ┌──────────┐    ┌──────────────┐    ┌─────────────────────┐  │
-│  │   RSS    │───▶│ Azure OpenAI │───▶│ Office 365 Outlook  │  │
-│  │ Trigger  │    │   (GPT-4)    │    │   (Email Sender)    │  │
+│  │Recurrence│───▶│ Azure OpenAI │───▶│ Office 365 Outlook  │  │
+│  │ Trigger  │    │   (GPT-4o)   │    │   (HTML Email)      │  │
 │  └──────────┘    └──────────────┘    └─────────────────────┘  │
 │       │                  │                        │             │
-│  매일 09:00         AI 요약                   이메일 발송      │
+│  매일 07:00        3줄 한글 요약            카드 레이아웃      │
+│   (KST)          (번호 + <br>)              반응형 디자인     │
 │                                                                  │
 └─────────────────────────────────────────────────────────────────┘
                             │
                     ┌───────┴────────┐
                     │                │
               ┌─────▼─────┐   ┌─────▼──────┐
-              │ Key Vault │   │   Managed  │
-              │ (Secrets) │   │  Identity  │
+              │ RSS Feed  │   │  Filtering │
+              │ Microsoft │   │  24h / 5개 │
+              │ Security  │   │   최신순   │
               └───────────┘   └────────────┘
 ```
 
@@ -47,12 +50,10 @@
 | 구성 요소 | 서비스 | 역할 |
 |----------|--------|------|
 | **오케스트레이션** | Azure Logic Apps (Consumption) | 워크플로 관리 및 스케줄링 |
-| **AI 요약** | Azure OpenAI (GPT-4) | 블로그 콘텐츠 요약 |
+| **AI 요약** | Azure OpenAI GPT-4o | 블로그 3줄 한글 요약 |
 | **이메일 발송** | Office 365 Outlook | 요약 메일 전송 |
-| **보안** | Azure Key Vault | API 키 관리 |
-| **인증** | Managed Identity | 안전한 리소스 접근 |
-| **IaC** | Azure Bicep | 인프라 코드화 |
-| **배포** | GitHub Actions + azd | CI/CD 자동화 |
+| **RSS 소스** | Microsoft Security Blog | 공식 보안 블로그 RSS |
+| **필터링** | Logic Apps Query/Compose | 24시간 내 or 최근 5개 |
 
 ## 🚀 빠른 시작
 
@@ -238,6 +239,28 @@ azure-security-blog-automation/
 4. Push to the Branch (`git push origin feature/AmazingFeature`)
 5. Open a Pull Request
 
+## � TODO / 향후 개선 계획
+
+### 🔐 보안 강화
+- [ ] **Azure Key Vault 통합**: OpenAI API 키를 Key Vault에서 관리
+- [ ] **Managed Identity**: Key Vault 접근을 위한 시스템 할당 관리 ID 구성
+
+### 📰 콘텐츠 확장
+- [ ] **Tech Community RSS 추가**: Microsoft Tech Community Security Blog RSS 통합
+- [ ] **다중 RSS 소스**: 여러 보안 블로그 통합 (Compose + Union)
+
+### 🎨 UI/UX 개선
+- [ ] **이메일 템플릿 최적화**: 모바일 반응형 개선
+- [ ] **AI 요약 품질 향상**: Few-shot learning 프롬프트 개선
+
+### ⚙️ 운영 개선
+- [ ] **Application Insights**: 상세 모니터링 및 알림 구성
+- [ ] **에러 핸들링**: 재시도 로직 및 에러 알림 추가
+
+### 🚀 IaC 자동화
+- [ ] **Azure Bicep 템플릿**: 전체 인프라 코드화
+- [ ] **GitHub Actions CI/CD**: 자동 배포 파이프라인 구성
+
 ## 📄 라이선스
 
 이 프로젝트는 MIT 라이선스 하에 배포됩니다. 자세한 내용은 [LICENSE](LICENSE) 파일을 참조하세요.
@@ -251,7 +274,7 @@ azure-security-blog-automation/
 
 ## 🙏 감사의 말
 
-- Microsoft Security Tech Community
+- Microsoft Security Blog Team
 - Azure Logic Apps Team
 - Azure OpenAI Team
 

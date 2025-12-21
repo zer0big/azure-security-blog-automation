@@ -1,111 +1,96 @@
 ﻿{
-    "triggers":  {
-                     "Recurrence":  {
-                                        "recurrence":  {
-                                                           "frequency":  "Day",
-                                                           "interval":  1,
-                                                           "schedule":  {
-                                                                            "hours":  [
-                                                                                          "9"
-                                                                                      ],
-                                                                            "minutes":  [
-                                                                                            0
-                                                                                        ]
-                                                                        },
-                                                           "timeZone":  "Korea Standard Time"
-                                                       },
-                                        "type":  "Recurrence"
-                                    }
-                 },
-    "actions":  {
-                    "List_RSS":  {
-                                     "inputs":  {
-                                                    "host":  {
-                                                                 "connection":  {
-                                                                                    "referenceName":  "rss"
-                                                                                }
-                                                             },
-                                                    "path":  "/ListFeedItems",
-                                                    "queries":  {
-                                                                    "feedUrl":  "@parameters(\u0027rssFeedUrl\u0027)"
-                                                                },
-                                                    "method":  "get"
-                                                },
-                                     "runAfter":  {
-
-                                                  },
-                                     "type":  "ApiConnection"
-                                 },
-                    "Send_Test_Email":  {
-                                            "inputs":  {
-                                                           "body":  {
-                                                                        "Subject":  "✅ Logic App 테스트 - @{utcNow()}",
-                                                                        "To":  "@parameters(\u0027emailRecipient\u0027)",
-                                                                        "Body":  "\u003ch2\u003eLogic App 동작 확인 테스트\u003c/h2\u003e\u003cp\u003e\u003cstrong\u003e이메일 발송 성공!\u003c/strong\u003e\u003c/p\u003e\u003cp\u003e수신자: @{parameters(\u0027emailRecipient\u0027)}\u003c/p\u003e\u003cp\u003e시간: @{utcNow()}\u003c/p\u003e\u003chr/\u003e\u003cp\u003eRSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.\u003c/p\u003e",
-                                                                        "Importance":  "High"
-                                                                    },
-                                                           "host":  {
-                                                                        "connection":  {
-                                                                                           "referenceName":  "office365"
-                                                                                       }
-                                                                    },
-                                                           "path":  "/v2/Mail",
-                                                           "method":  "post"
-                                                       },
-                                            "runAfter":  {
-                                                             "List_RSS":  [
-                                                                              "Succeeded"
-                                                                          ]
-                                                         },
-                                            "type":  "ApiConnection"
-                                        }
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "$connections": {
+            "defaultValue": {},
+            "type": "Object"
+        },
+        "openAiEndpoint": {
+            "type": "String",
+            "metadata": {
+                "description": "Azure OpenAI API Endpoint (예: https://your-openai.openai.azure.com/)"
+            }
+        },
+        "openAiDeploymentName": {
+            "type": "String",
+            "defaultValue": "gpt-4",
+            "metadata": {
+                "description": "Azure OpenAI GPT-4 Deployment Name"
+            }
+        },
+        "emailRecipient": {
+            "type": "String",
+            "metadata": {
+                "description": "이메일 수신자 주소"
+            }
+        },
+        "rssFeedUrl": {
+            "type": "String",
+            "defaultValue": "https://www.microsoft.com/en-us/security/blog/feed/",
+            "metadata": {
+                "description": "RSS 피드 URL"
+            }
+        }
+    },
+    "triggers": {
+        "Recurrence": {
+            "recurrence": {
+                "frequency": "Day",
+                "interval": 1,
+                "schedule": {
+                    "hours": [
+                        "9"
+                    ],
+                    "minutes": [
+                        0
+                    ]
                 },
-    "contentVersion":  "1.0.0.0",
-    "outputs":  {
-
+                "timeZone": "Korea Standard Time"
+            },
+            "type": "Recurrence"
+        }
+    },
+    "actions": {
+        "List_RSS": {
+            "inputs": {
+                "host": {
+                    "connection": {
+                        "referenceName": "rss"
+                    }
                 },
-    "parameters":  {
-                       "$connections":  {
-                                            "defaultValue":  {
-                                                                 "office365":  {
-                                                                                   "connectionName":  "office365",
-                                                                                   "connectionId":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Web/connections/office365-dev-security-blog-automation",
-                                                                                   "id":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/providers/Microsoft.Web/locations/koreacentral/managedApis/office365"
-                                                                               },
-                                                                 "rss":  {
-                                                                             "connectionName":  "rss",
-                                                                             "connectionId":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Web/connections/rss-dev-security-blog-automation",
-                                                                             "id":  "/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/providers/Microsoft.Web/locations/koreacentral/managedApis/rss"
-                                                                         }
-                                                             },
-                                            "type":  "Object"
-                                        },
-                       "openAiEndpoint":  {
-                                              "type":  "String",
-                                              "metadata":  {
-                                                               "description":  "Azure OpenAI API Endpoint (예: https://your-openai.openai.azure.com/)"
-                                                           }
-                                          },
-                       "openAiDeploymentName":  {
-                                                    "type":  "String",
-                                                    "defaultValue":  "gpt-4",
-                                                    "metadata":  {
-                                                                     "description":  "Azure OpenAI GPT-4 Deployment Name"
-                                                                 }
-                                                },
-                       "emailRecipient":  {
-                                              "type":  "String",
-                                              "metadata":  {
-                                                               "description":  "이메일 수신자 주소"
-                                                           }
-                                          },
-                       "rssFeedUrl":  {
-                                          "type":  "String",
-                                          "defaultValue":  "https://www.microsoft.com/en-us/security/blog/feed/",
-                                          "metadata":  {
-                                                           "description":  "RSS 피드 URL"
-                                                       }
-                                      }
-                   },
-    "$schema":  "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#"
+                "path": "/ListFeedItems",
+                "queries": {
+                    "feedUrl": "@parameters('rssFeedUrl')"
+                },
+                "method": "get"
+            },
+            "runAfter": {},
+            "type": "ApiConnection"
+        },
+        "Send_Test_Email": {
+            "inputs": {
+                "body": {
+                    "Subject": "✅ Logic App 테스트 - @{utcNow()}",
+                    "To": "@parameters('emailRecipient')",
+                    "Body": "<h2>Logic App 동작 확인 테스트</h2><p><strong>이메일 발송 성공!</strong></p><p>수신자: @{parameters('emailRecipient')}</p><p>시간: @{utcNow()}</p><hr/><p>RSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.</p>",
+                    "Importance": "High"
+                },
+                "host": {
+                    "connection": {
+                        "referenceName": "office365"
+                    }
+                },
+                "path": "/v2/Mail",
+                "method": "post"
+            },
+            "runAfter": {
+                "List_RSS": [
+                    "Succeeded"
+                ]
+            },
+            "type": "ApiConnection"
+        }
+    },
+    "outputs": {}
 }
