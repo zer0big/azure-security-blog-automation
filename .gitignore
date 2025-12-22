@@ -90,3 +90,43 @@ ENV/
 *.pem
 *.cer
 *.crt
+
+# Temporary and Test Files
+*-test.json
+*-temp.json
+*-debug.json
+deploy-*.json
+current-*.json
+latest-*.json
+last-run-*.json
+multi-rss-*.json
+foreach-*.json
+update-*.json
+workflow-*.json
+run-*.json
+tech-*.json
+rss-*.json
+scheduled-*.json
+wf-*.json
+disable-*.json
+enable-*.json
+full-*.json
+final-*.json
+deployed-*.json
+check-*.json
+
+# Temporary Scripts
+*-temp.ps1
+test-*.ps1
+fix-*.ps1
+deploy-*.ps1
+update-*.ps1
+
+# Temporary Markdown
+*-temp.md
+EXECUTION_ANALYSIS.md
+FINAL_STATUS.md
+PORTAL_DEPLOY_GUIDE.md
+
+# Temporary Text Files
+deploy-result.txt
