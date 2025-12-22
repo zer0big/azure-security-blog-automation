@@ -6,7 +6,7 @@
 - **환경**: Development (Korea Central)
 - **리소스 그룹**: rg-security-blog-automation-dev
 - **버전**: 1.0.0
-- **최종 업데이트**: 2024-12-22
+- **최종 업데이트**: 2025-12-22
 - **작성자**: Azure MVP Team
 - **구독 ID**: 3864b016-4594-40ad-a96b-4a08ac96b537
 
