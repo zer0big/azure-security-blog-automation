@@ -26,15 +26,20 @@ public class GenerateEmailHtml
         {
             var request = await req.ReadFromJsonAsync<GenerateEmailRequest>();
 
-            if (request == null || request.Posts == null || request.Posts.Length == 0)
+            if (request == null || request.Posts == null)
             {
                 _logger.LogWarning("Invalid request: Posts array is required");
                 return new BadRequestObjectResult(new { error = "Posts array is required" });
             }
 
-            var html = GenerateHtml(request.Posts);
+            // 24시간 내 신규 게시물 여부 판단
+            var hasNewPosts = request.Posts.Length > 0;
+            
+            var html = GenerateHtml(request.Posts, hasNewPosts);
 
-            var subject = $"[Microsoft 보안 블로그] 새 게시글 {request.Posts.Length}개";
+            var subject = hasNewPosts 
+                ? $"[Microsoft 보안 블로그] 새 게시글 {request.Posts.Length}개" 
+                : "[Microsoft 보안 블로그] 최근 게시글 요약 (신규 없음)";
             
             return new OkObjectResult(new { html, subject });
         }
@@ -48,7 +53,7 @@ public class GenerateEmailHtml
         }
     }
 
-    private string GenerateHtml(BlogPost[] posts)
+    private string GenerateHtml(BlogPost[] posts, bool hasNewPosts)
     {
         var sb = new StringBuilder();
 
@@ -62,6 +67,7 @@ public class GenerateEmailHtml
         sb.AppendLine(".header { background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%); color: #0078d4 !important; padding: 30px; border-radius: 8px 8px 0 0; text-align: center; border-bottom: 3px solid #0078d4; }");
         sb.AppendLine(".header h1 { margin: 0 0 10px 0; font-size: 28px; color: #0078d4 !important; font-weight: bold; }");
         sb.AppendLine(".header .count { font-size: 18px; color: #005a9e !important; font-weight: 600; }");
+        sb.AppendLine(".no-new-notice { background: #fff3cd; color: #856404; padding: 15px; margin: 20px; border-left: 4px solid #ffc107; border-radius: 4px; font-size: 16px; }");
         sb.AppendLine(".content { padding: 20px; }");
         sb.AppendLine(".post { background: #f8f9fa; padding: 20px; margin: 20px 0; border-left: 4px solid #0078d4; border-radius: 4px; }");
         sb.AppendLine(".post-title { color: #0078d4; font-size: 20px; font-weight: bold; margin: 0 0 10px 0; }");
@@ -76,8 +82,26 @@ public class GenerateEmailHtml
         sb.AppendLine("<div class=\"container\">");
         sb.AppendLine("<div class=\"header\">");
         sb.AppendLine("<h1>🔒 Microsoft 보안 블로그 업데이트</h1>");
-        sb.AppendLine($"<div class=\"count\">새로운 게시글 {posts.Length}개</div>");
+        
+        if (hasNewPosts)
+        {
+            sb.AppendLine($"<div class=\"count\">새로운 게시글 {posts.Length}개</div>");
+        }
+        else
+        {
+            sb.AppendLine($"<div class=\"count\">최근 게시글 {posts.Length}개</div>");
+        }
+        
         sb.AppendLine("</div>");
+        
+        if (!hasNewPosts)
+        {
+            sb.AppendLine("<div class=\"no-new-notice\">");
+            sb.AppendLine("ℹ️ <strong>24시간 이내에 게시된 새 글이 없습니다.</strong><br>");
+            sb.AppendLine("아래는 각 피드의 최근 5개 게시글입니다.");
+            sb.AppendLine("</div>");
+        }
+        
         sb.AppendLine("<div class=\"content\">");
 
         foreach (var post in posts)
@@ -108,6 +132,34 @@ public class GenerateEmailHtml
             }
             
             sb.AppendLine($"<div class=\"post-summary\">{System.Net.WebUtility.HtmlEncode(summary)}</div>");
+            
+            // Display AI-generated summaries if available
+            if (post.EnglishSummary != null && post.EnglishSummary.Length > 0)
+            {
+                sb.AppendLine("<div style=\"background: #e8f4f8; padding: 15px; margin: 15px 0; border-radius: 4px; border-left: 3px solid #00a4ef;\">");
+                sb.AppendLine("<div style=\"color: #00a4ef; font-weight: bold; margin-bottom: 10px;\">💡 Key Insights (AI Summary)</div>");
+                sb.AppendLine("<ul style=\"margin: 5px 0; padding-left: 20px;\">");
+                foreach (var point in post.EnglishSummary)
+                {
+                    sb.AppendLine($"<li style=\"margin: 5px 0;\">{System.Net.WebUtility.HtmlEncode(point)}</li>");
+                }
+                sb.AppendLine("</ul>");
+                sb.AppendLine("</div>");
+            }
+            
+            if (post.KoreanSummary != null && post.KoreanSummary.Length > 0)
+            {
+                sb.AppendLine("<div style=\"background: #f0f8ff; padding: 15px; margin: 15px 0; border-radius: 4px; border-left: 3px solid #0078d4;\">");
+                sb.AppendLine("<div style=\"color: #0078d4; font-weight: bold; margin-bottom: 10px;\">🇰🇷 핵심 인사이트 (한국어 요약)</div>");
+                sb.AppendLine("<ul style=\"margin: 5px 0; padding-left: 20px;\">");
+                foreach (var point in post.KoreanSummary)
+                {
+                    sb.AppendLine($"<li style=\"margin: 5px 0;\">{System.Net.WebUtility.HtmlEncode(point)}</li>");
+                }
+                sb.AppendLine("</ul>");
+                sb.AppendLine("</div>");
+            }
+            
             sb.AppendLine($"<a href=\"{System.Net.WebUtility.HtmlEncode(post.Link)}\" class=\"post-link\">전체 글 읽기 →</a>");
             sb.AppendLine("</div>");
         }
@@ -154,4 +206,6 @@ public class BlogPost
     public string? PublishDate { get; set; }
     public string? Summary { get; set; }
     public string? SourceName { get; set; }
+    public string[]? EnglishSummary { get; set; }
+    public string[]? KoreanSummary { get; set; }
 }

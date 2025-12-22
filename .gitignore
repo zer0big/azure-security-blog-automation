@@ -127,6 +127,23 @@ update-*.ps1
 EXECUTION_ANALYSIS.md
 FINAL_STATUS.md
 PORTAL_DEPLOY_GUIDE.md
+Azure-Functions-400-Error-Issue.md
+Implementation-Plan-Review.md
+Phase1-Bicep-Plan.md
+Phase2-Functions-Plan.md
+TECH-COMMUNITY-RSS-ISSUE.md
 
 # Temporary Text Files
 deploy-result.txt
+
+# Build Artifacts
+*.zip
+functions/**/*.zip
+
+# Temporary Workflow Files
+consolidated-*.json
+security-blog-consolidated.json
+security-blog-definition-v2.json
+security-blog-deploy.json
+security-blog-summarizer-v3.json
+updated-workflow.json

@@ -41,6 +41,14 @@ param emailRecipient string
 @description('RSS 피드 URL')
 param rssFeedUrl string = 'https://www.microsoft.com/en-us/security/blog/feed/'
 
+@description('RSS 피드 URL 배열 (향후 다중 RSS 지원)')
+param rssFeedUrls array = [
+  {
+    url: 'https://www.microsoft.com/en-us/security/blog/feed/'
+    sourceName: 'SecurityBlog'
+  }
+]
+
 // ============================================================================
 // Variables - Well-Architected Framework 명명 규칙
 // ============================================================================
@@ -58,6 +66,10 @@ var tags = {
 var logicAppName = 'logic-${namingPrefix}'
 var appInsightsName = 'appi-${namingPrefix}'
 var logAnalyticsName = 'log-${namingPrefix}'
+var storageAccountName = 'st${environment}secblogauto' // 24자 제한: stdevsecblogauto
+var functionAppName = 'func-${namingPrefix}'
+var consumptionPlanName = 'plan-${namingPrefix}-func'
+var processedPostsTableName = 'ProcessedPosts'
 
 // ============================================================================
 // Module 1: Log Analytics Workspace
@@ -141,7 +153,160 @@ resource logicApp 'Microsoft.Logic/workflows@2019-05-01' = {
 }
 
 // ============================================================================
-// Module 4: Diagnostic Settings (Application Insights 통합)
+// Module 4: Storage Account (Table Storage for Duplicate Detection)
+// ============================================================================
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
+  name: storageAccountName
+  location: location
+  tags: tags
+  kind: 'StorageV2'
+  sku: {
+    name: 'Standard_LRS' // 비용 최적화: Locally Redundant Storage
+  }
+  properties: {
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+    allowBlobPublicAccess: false // 보안 강화
+    allowSharedKeyAccess: true // Functions에서 Connection String 사용
+    networkAcls: {
+      defaultAction: 'Allow' // Phase 2에서 Private Endpoint 검토
+      bypass: 'AzureServices'
+    }
+  }
+}
+
+// ============================================================================
+// Module 5: Table Service & ProcessedPosts Table
+// ============================================================================
+
+resource tableService 'Microsoft.Storage/storageAccounts/tableServices@2023-01-01' = {
+  parent: storageAccount
+  name: 'default'
+}
+
+resource processedPostsTable 'Microsoft.Storage/storageAccounts/tableServices/tables@2023-01-01' = {
+  parent: tableService
+  name: processedPostsTableName
+}
+
+// ============================================================================
+// Module 6: App Service Plan (Consumption)
+// ============================================================================
+
+resource consumptionPlan 'Microsoft.Web/serverfarms@2023-01-01' = {
+  name: consumptionPlanName
+  location: location
+  tags: tags
+  kind: 'functionapp'
+  sku: {
+    name: 'Y1' // Consumption (종량제)
+    tier: 'Dynamic'
+  }
+  properties: {
+    reserved: false // Windows Functions
+  }
+}
+
+// ============================================================================
+// Module 7: Function App (C# Isolated)
+// ============================================================================
+
+resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
+  name: functionAppName
+  location: location
+  tags: tags
+  kind: 'functionapp'
+  identity: {
+    type: 'SystemAssigned' // Managed Identity
+  }
+  properties: {
+    serverFarmId: consumptionPlan.id
+    siteConfig: {
+      appSettings: [
+        {
+          name: 'AzureWebJobsStorage'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+        }
+        {
+          name: 'WEBSITE_CONTENTAZUREFILECONNECTIONSTRING'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+        }
+        {
+          name: 'WEBSITE_CONTENTSHARE'
+          value: toLower(functionAppName)
+        }
+        {
+          name: 'FUNCTIONS_EXTENSION_VERSION'
+          value: '~4'
+        }
+        {
+          name: 'FUNCTIONS_WORKER_RUNTIME'
+          value: 'dotnet-isolated'
+        }
+        {
+          name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+          value: appInsights.properties.ConnectionString
+        }
+        {
+          name: 'ProcessedPostsTable'
+          value: processedPostsTableName
+        }
+        {
+          name: 'STORAGE_ACCOUNT_NAME'
+          value: storageAccount.name
+        }
+        {
+          name: 'STORAGE_CONNECTION_STRING'
+          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
+        }
+      ]
+      netFrameworkVersion: 'v8.0'
+      use32BitWorkerProcess: false
+      ftpsState: 'Disabled' // 보안 강화
+      minTlsVersion: '1.2'
+    }
+    httpsOnly: true
+    clientAffinityEnabled: false
+  }
+}
+
+// ============================================================================
+// Module 8: RBAC - Functions → Storage (Table Data Contributor)
+// ============================================================================
+
+resource functionToStorageRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: storageAccount
+  name: guid(storageAccount.id, functionApp.id, 'Storage Table Data Contributor')
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      '0a9a7e1f-b9d0-4cc4-a60d-0319b160aaa3' // Storage Table Data Contributor
+    )
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
+// Module 9: RBAC - Logic App → Functions (Website Contributor)
+// ============================================================================
+
+resource logicAppToFunctionsRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  scope: functionApp
+  name: guid(functionApp.id, logicApp.id, 'Website Contributor')
+  properties: {
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      'de139f84-1756-47ae-9be6-808fbbe84772' // Website Contributor
+    )
+    principalId: logicApp.identity.principalId
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
+// Module 10: Diagnostic Settings (Application Insights 통합)
 // ============================================================================
 
 resource logicAppDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
@@ -224,3 +389,21 @@ output office365ConnectionId string = office365Connection.id
 
 @description('RSS Connection ID')
 output rssConnectionId string = rssConnection.id
+
+@description('Storage Account 이름')
+output storageAccountName string = storageAccount.name
+
+@description('Storage Account ID')
+output storageAccountId string = storageAccount.id
+
+@description('Function App 이름')
+output functionAppName string = functionApp.name
+
+@description('Function App URL')
+output functionAppUrl string = 'https://${functionApp.properties.defaultHostName}'
+
+@description('Function App Managed Identity Principal ID')
+output functionAppPrincipalId string = functionApp.identity.principalId
+
+@description('ProcessedPosts Table 이름')
+output processedPostsTableName string = processedPostsTableName
