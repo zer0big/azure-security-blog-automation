@@ -5,7 +5,7 @@
 - **시스템명**: Azure Security Blog Automation
 - **Logic App**: logic-dev-security-blog-automation
 - **버전**: 1.0.0
-- **최종 업데이트**: 2024-12-22
+- **최종 업데이트**: 2025-12-22
 - **작성자**: Azure MVP Team
 - **환경**: Development (Korea Central)
 
