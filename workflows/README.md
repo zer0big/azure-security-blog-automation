@@ -6,15 +6,16 @@ Azure Logic Apps 워크플로 정의 파일입니다.
 
 ```
 workflows/
-├── security-blog-summarizer.json   # 보안 블로그 자동 요약 워크플로
+├── security-blog-definition.json   # (SoT) 배포에 사용하는 워크플로 정의
+├── security-blog-summarizer.json   # security-blog-definition.json과 동일 구조로 유지
 └── README.md                        # 이 파일
 ```
 
 ## 📋 워크플로 구조
 
-### security-blog-summarizer.json
+### security-blog-definition.json (SoT)
 
-Microsoft Security Blog RSS 피드를 읽고 Azure OpenAI로 요약하여 이메일로 발송하는 워크플로입니다.
+Microsoft Security Blog RSS 피드를 읽고, Azure Functions를 호출해 중복 체크/요약/저장/메일 HTML 생성 후 이메일로 발송하는 워크플로입니다.
 
 #### 1. Trigger (트리거)
 
@@ -27,26 +28,24 @@ Microsoft Security Blog RSS 피드를 읽고 Azure OpenAI로 요약하여 이메
 
 | 순서 | 액션 이름 | 유형 | 설명 |
 |-----|----------|------|------|
-| 1 | List_all_RSS_feed_items | API Connection (RSS) | Microsoft Security Blog RSS 피드 읽기 (지난 24시간) |
-| 2 | Condition_Check_New_Posts | Condition | 새 게시물 존재 여부 확인 |
-| 3 | For_each_RSS_Item | For each | 각 게시물 반복 처리 |
-| 4 | Try_Summarize_and_Send | Scope (Try) | 요약 및 이메일 발송 (에러 처리) |
-| 5 | HTTP_Call_Azure_OpenAI | HTTP | Azure OpenAI GPT-4 API 호출 (Managed Identity) |
-| 6 | Send_an_email_(V2) | API Connection (Office 365) | HTML 이메일 발송 |
-| 7 | Catch_Errors | Scope (Catch) | 에러 발생 시 알림 이메일 발송 |
+| 1 | Validate_RSS_Feed_URL | Condition | RSS URL 값 검증 (비어있음/https 여부) |
+| 2 | List_RSS | API Connection (RSS) | RSS 피드 아이템 조회 |
+| 3 | For_Each_RSS_Item | For each | 각 RSS 아이템 반복 처리 |
+| 4 | Check_Duplicate | HTTP | Functions: 중복 게시물 여부 확인 |
+| 5 | Call_Summarize_Post | HTTP | Functions: 요약 생성 (영문/한글) |
+| 6 | Insert_To_Table_Storage | HTTP | Functions: 처리 완료 기록 저장 |
+| 7 | Generate_Email_HTML | HTTP | Functions: 이메일 제목/HTML 생성 |
+| 8 | Send_Email | API Connection (Office 365) | HTML 이메일 발송 |
 
 #### 3. 에러 처리
 
-- **Try-Catch 패턴**: Scope를 사용한 구조화된 에러 처리
-- **재시도 정책**: HTTP 액션에 Exponential Backoff 적용
-  - Count: 3회
-  - Interval: 10초 → 최대 1분
-- **에러 알림**: 실패 시 관리자에게 즉시 이메일 발송
+- RSS 조회 실패/타임아웃 시 오류 메일 발송 후 Terminate(Failed)
+- 처리(Scope) 실패/타임아웃 시 오류 메일 발송 후 Terminate(Failed)
 
 #### 4. 보안 기능
 
-- ✅ **Managed Identity**: OpenAI API 호출 시 인증 (API 키 하드코딩 방지)
-- ✅ **Parameters**: 민감 정보 (이메일, 엔드포인트) 외부 파라미터화
+- ✅ **SecureString Parameter**: `functionKey`를 SecureString으로 받고 `x-functions-key` 헤더로 전달
+- ✅ **Parameters**: 민감 정보(이메일/키/엔드포인트)를 외부 파라미터화
 - ✅ **API Connection**: Office 365, RSS 연결 분리 관리
 
 ## 🚀 배포 방법
@@ -85,6 +84,8 @@ Logic App에서 다음 Parameters를 설정해야 합니다:
 | `openAiDeploymentName` | `gpt-4` | GPT-4 배포 이름 |
 | `emailRecipient` | `your-email@example.com` | 이메일 수신자 |
 | `rssFeedUrl` | `https://www.microsoft.com/en-us/security/blog/feed/` | RSS 피드 URL |
+| `functionsAppUrl` | `https://func-xxx.azurewebsites.net` | Azure Functions base URL |
+| `functionKey` | `(secret)` | Azure Functions Function Key |
 
 ## 🔧 배포 후 설정
 
@@ -106,7 +107,7 @@ Logic App에서 다음 Parameters를 설정해야 합니다:
 
 ### 2. Managed Identity 권한 부여
 
-Logic App의 Managed Identity에 Azure OpenAI 리소스 접근 권한을 부여해야 합니다.
+Logic App의 Managed Identity에 Azure OpenAI 리소스 접근 권한을 부여해야 합니다. (OpenAI 호출은 Functions에서 수행)
 
 ```bash
 # 1. Logic App Managed Identity Principal ID 확인
@@ -194,8 +195,8 @@ AzureDiagnostics
 
 ## 🔒 보안 체크리스트
 
-- ✅ Managed Identity 사용 (OpenAI API)
-- ✅ API 키 하드코딩 방지 (Parameters 활용)
+- ✅ Managed Identity 사용 (OpenAI API - Functions)
+- ✅ Function Key 하드코딩 방지 (SecureString + 배포 시점 주입)
 - ✅ Office 365 OAuth 인증
 - ✅ 재시도 정책으로 일시적 오류 대응
 - ✅ 에러 알림으로 장애 인지

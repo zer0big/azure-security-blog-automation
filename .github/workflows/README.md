@@ -67,6 +67,8 @@ GitHub Repository → Settings → Secrets and variables → Actions에서 설�
 | `OPENAI_DEPLOYMENT_NAME` | GPT-4 배포 이름 | `gpt-4` |
 | `OPENAI_RESOURCE_ID` | Azure OpenAI 리소스 ID | `/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{name}` |
 
+> NOTE: Logic App가 Functions를 호출할 때 쓰는 `x-functions-key`는 배포 시점에 `az functionapp keys list`로 자동 조회해서 워크플로 파라미터로 주입합니다.
+
 ## 🔧 Service Principal 생성
 
 ### 1. Azure CLI로 생성

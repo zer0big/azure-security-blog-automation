@@ -1,198 +1,407 @@
 ﻿{
-    "$schema":  "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-    "contentVersion":  "1.0.0.0",
-    "parameters":  {
-
-                        "$connections":  {
-                                              "defaultValue":  {
-
-                                                               },
-                                              "type":  "Object"
-                                          },
-                        "emailRecipient":  {
-                                                "type":  "String",
-                                                "metadata":  {
-                                                                 "description":  "이메일 수신자 주소"
-                                                             }
-                                            },
-                        "rssFeedUrl":  {
-                                           "type":  "String",
-                                           "defaultValue":  "https://www.microsoft.com/en-us/security/blog/feed/",
-                                           "metadata":  {
-                                                            "description":  "RSS 피드 URL"
-                                                        }
-                                       }
-                    },
-    "triggers":  {
-                     "Recurrence":  {
-                                        "recurrence":  {
-                                                           "frequency":  "Day",
-                                                           "interval":  1,
-                                                           "schedule":  {
-                                                                            "hours":  [
-                                                                                          "9"
-                                                                                      ],
-                                                                            "minutes":  [
-                                                                                            0
-                                                                                        ]
-                                                                        },
-                                                           "timeZone":  "Korea Standard Time"
-                                                       },
-                                        "type":  "Recurrence"
-                                    }
-                 },
-    "actions":  {
-                    "Validate_RSS_Feed_URL":  {
-                                                   "actions":  {
-                                                                   "List_RSS":  {
-                                                                                   "inputs":  {
-                                                                                                  "host":  {
-                                                                                                               "connection":  {
-                                                                                                                                  "referenceName":  "rss"
-                                                                                                                              }
-                                                                                                           },
-                                                                                                  "path":  "/ListFeedItems",
-                                                                                                  "queries":  {
-                                                                                                                  "feedUrl":  "@parameters(\u0027rssFeedUrl\u0027)"
-                                                                                                              },
-                                                                                                  "method":  "get"
-                                                                                              },
-                                                                                   "runAfter":  {
-
-                                                                                                },
-                                                                                   "type":  "ApiConnection"
-                                                                               },
-                                                                   "Send_Test_Email":  {
-                                                                                          "inputs":  {
-                                                                                                         "body":  {
-                                                                                                                      "Subject":  "✅ Logic App 테스트 - @{utcNow()}",
-                                                                                                                      "To":  "@parameters(\u0027emailRecipient\u0027)",
-                                                                                                                      "Body":  "<h2>Logic App 동작 확인 테스트</h2><p><strong>이메일 발송 성공!</strong></p><p>수신자: @{parameters(\u0027emailRecipient\u0027)}</p><p>시간: @{utcNow()}</p><hr/><p>RSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.</p>",
-                                                                                                                      "Importance":  "High"
-                                                                                                                  },
-                                                                                                         "host":  {
-                                                                                                                      "connection":  {
-                                                                                                                                         "referenceName":  "office365"
-                                                                                                                                     }
-                                                                                                                  },
-                                                                                                         "path":  "/v2/Mail",
-                                                                                                         "method":  "post"
-                                                                                                     },
-                                                                                          "runAfter":  {
-                                                                                                           "List_RSS":  [
-                                                                                                                            "Succeeded"
-                                                                                                                        ]
-                                                                                                       },
-                                                                                          "type":  "ApiConnection"
-                                                                                      },
-                                                                   "Send_RSS_Error_Email":  {
-                                                                                                "inputs":  {
-                                                                                                               "body":  {
-                                                                                                                            "Subject":  "❌ Logic App 오류 - RSS 조회 실패 - @{utcNow()}",
-                                                                                                                            "To":  "@parameters(\u0027emailRecipient\u0027)",
-                                                                                                                            "Body":  "<h2>RSS 조회 실패</h2><p>rssFeedUrl: @{parameters(\u0027rssFeedUrl\u0027)}</p><p>실행 ID: @{workflow().run.name}</p><p>상태: @{actions(\u0027List_RSS\u0027).status}</p><pre>@{string(actions(\u0027List_RSS\u0027))}</pre>",
-                                                                                                                            "Importance":  "High"
-                                                                                                                        },
-                                                                                                               "host":  {
-                                                                                                                            "connection":  {
-                                                                                                                                               "referenceName":  "office365"
-                                                                                                                                           }
-                                                                                                                        },
-                                                                                                               "path":  "/v2/Mail",
-                                                                                                               "method":  "post"
-                                                                                                           },
-                                                                                                "runAfter":  {
-                                                                                                                 "List_RSS":  [
-                                                                                                                                  "Failed",
-                                                                                                                                  "TimedOut"
-                                                                                                                              ]
-                                                                                                             },
-                                                                                                "type":  "ApiConnection"
-                                                                                            },
-                                                                   "Terminate_On_RSS_Error":  {
-                                                                                                   "inputs":  {
-                                                                                                                  "runStatus":  "Failed",
-                                                                                                                  "runError":  {
-                                                                                                                                   "code":  "RssFeedFetchFailed",
-                                                                                                                                   "message":  "Failed to fetch RSS feed items"
-                                                                                                                               }
-                                                                                                              },
-                                                                                                   "runAfter":  {
-                                                                                                                    "Send_RSS_Error_Email":  [
-                                                                                                                                                "Succeeded",
-                                                                                                                                                "Failed"
-                                                                                                                                            ]
-                                                                                                                },
-                                                                                                   "type":  "Terminate"
-                                                                                               }
-                                                               },
-                                                   "else":  {
-                                                                "actions":  {
-                                                                                "Send_Invalid_RSS_Email":  {
-                                                                                                                "inputs":  {
-                                                                                                                               "body":  {
-                                                                                                                                            "Subject":  "❌ Logic App 오류 - RSS URL 유효성 실패 - @{utcNow()}",
-                                                                                                                                            "To":  "@parameters(\u0027emailRecipient\u0027)",
-                                                                                                                                            "Body":  "<h2>RSS URL 유효성 검사 실패</h2><p>rssFeedUrl 값이 비어있거나 https://로 시작하지 않습니다.</p><p>rssFeedUrl: @{parameters(\u0027rssFeedUrl\u0027)}</p><p>실행 ID: @{workflow().run.name}</p>",
-                                                                                                                                            "Importance":  "High"
-                                                                                                                                        },
-                                                                                                                               "host":  {
-                                                                                                                                            "connection":  {
-                                                                                                                                                               "referenceName":  "office365"
-                                                                                                                                                           }
-                                                                                                                                        },
-                                                                                                                               "path":  "/v2/Mail",
-                                                                                                                               "method":  "post"
-                                                                                                                           },
-                                                                                                                "runAfter":  {
-
-                                                                                                                             },
-                                                                                                                "type":  "ApiConnection"
-                                                                                                            },
-                                                                                "Terminate_On_Invalid_RSS":  {
-                                                                                                                   "inputs":  {
-                                                                                                                                  "runStatus":  "Failed",
-                                                                                                                                  "runError":  {
-                                                                                                                                                   "code":  "InvalidRssFeedUrl",
-                                                                                                                                                   "message":  "rssFeedUrl is empty or not https"
-                                                                                                                                               }
-                                                                                                                              },
-                                                                                                                   "runAfter":  {
-                                                                                                                                    "Send_Invalid_RSS_Email":  [
-                                                                                                                                                                 "Succeeded",
-                                                                                                                                                                 "Failed"
-                                                                                                                                                             ]
-                                                                                                                                },
-                                                                                                                   "type":  "Terminate"
-                                                                                                               }
-                                                                            }
-                                                            },
-                                                   "expression":  {
-                                                                      "and":  [
-                                                                                  {
-                                                                                      "not":  [
-                                                                                                  {
-                                                                                                      "empty":  [
-                                                                                                                   "@parameters(\u0027rssFeedUrl\u0027)"
-                                                                                                               ]
-                                                                                                  }
-                                                                                              ]
-                                                                                  },
-                                                                                  {
-                                                                                      "startsWith":  [
-                                                                                                        "@parameters(\u0027rssFeedUrl\u0027)",
-                                                                                                        "https://"
-                                                                                                    ]
-                                                                                  }
-                                                                              ]
-                                                                  },
-                                                   "runAfter":  {
-
-                                                                },
-                                                   "type":  "If"
-                                               }
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "$connections": {
+            "defaultValue": {},
+            "type": "Object"
+        },
+        "openAiEndpoint": {
+            "type": "String",
+            "metadata": {
+                "description": "Azure OpenAI API Endpoint (현재 워크플로에서는 직접 사용하지 않음)"
+            }
+        },
+        "openAiDeploymentName": {
+            "type": "String",
+            "defaultValue": "gpt-4",
+            "metadata": {
+                "description": "Azure OpenAI Deployment Name (현재 워크플로에서는 직접 사용하지 않음)"
+            }
+        },
+        "emailRecipient": {
+            "type": "String",
+            "metadata": {
+                "description": "이메일 수신자 주소"
+            }
+        },
+        "rssFeedUrl": {
+            "type": "String",
+            "defaultValue": "https://www.microsoft.com/en-us/security/blog/feed/",
+            "metadata": {
+                "description": "RSS 피드 URL"
+            }
+        },
+        "functionsAppUrl": {
+            "type": "String",
+            "metadata": {
+                "description": "Azure Functions base URL (예: https://func-xxx.azurewebsites.net)"
+            }
+        },
+        "functionKey": {
+            "type": "SecureString",
+            "metadata": {
+                "description": "Azure Functions key (x-functions-key 헤더로 전달)"
+            }
+        }
+    },
+    "triggers": {
+        "Recurrence": {
+            "recurrence": {
+                "frequency": "Day",
+                "interval": 1,
+                "schedule": {
+                    "hours": [
+                        "9"
+                    ],
+                    "minutes": [
+                        0
+                    ]
                 },
-    "outputs":  {
-
+                "timeZone": "Korea Standard Time"
+            },
+            "type": "Recurrence"
+        }
+    },
+    "actions": {
+        "Validate_RSS_Feed_URL": {
+            "type": "If",
+            "expression": {
+                "and": [
+                    {
+                        "not": [
+                            {
+                                "empty": [
+                                    "@parameters('rssFeedUrl')"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "startsWith": [
+                            "@parameters('rssFeedUrl')",
+                            "https://"
+                        ]
+                    }
+                ]
+            },
+            "runAfter": {},
+            "actions": {
+                "Initialize_NewPosts": {
+                    "type": "InitializeVariable",
+                    "inputs": {
+                        "variables": [
+                            {
+                                "name": "newPosts",
+                                "type": "Array",
+                                "value": []
+                            }
+                        ]
+                    },
+                    "runAfter": {}
+                },
+                "List_RSS": {
+                    "type": "ApiConnection",
+                    "inputs": {
+                        "host": {
+                            "connection": {
+                                "referenceName": "rss"
+                            }
+                        },
+                        "path": "/ListFeedItems",
+                        "queries": {
+                            "feedUrl": "@parameters('rssFeedUrl')"
+                        },
+                        "method": "get"
+                    },
+                    "runAfter": {
+                        "Initialize_NewPosts": [
+                            "Succeeded"
+                        ]
+                    }
+                },
+                "Send_RSS_Error_Email": {
+                    "type": "ApiConnection",
+                    "inputs": {
+                        "body": {
+                            "Subject": "❌ Logic App 오류 - RSS 조회 실패 - @{utcNow()}",
+                            "To": "@parameters('emailRecipient')",
+                            "Body": "<h2>RSS 조회 실패</h2><p>rssFeedUrl: @{parameters('rssFeedUrl')}</p><p>실행 ID: @{workflow().run.name}</p><p>상태: @{actions('List_RSS').status}</p><pre>@{string(actions('List_RSS'))}</pre>",
+                            "Importance": "High"
+                        },
+                        "host": {
+                            "connection": {
+                                "referenceName": "office365"
+                            }
+                        },
+                        "path": "/v2/Mail",
+                        "method": "post"
+                    },
+                    "runAfter": {
+                        "List_RSS": [
+                            "Failed",
+                            "TimedOut"
+                        ]
+                    }
+                },
+                "Terminate_On_RSS_Error": {
+                    "type": "Terminate",
+                    "inputs": {
+                        "runStatus": "Failed",
+                        "runError": {
+                            "code": "RssFeedFetchFailed",
+                            "message": "Failed to fetch RSS feed items"
+                        }
+                    },
+                    "runAfter": {
+                        "Send_RSS_Error_Email": [
+                            "Succeeded",
+                            "Failed"
+                        ]
+                    }
+                },
+                "Scope_Process_RSS": {
+                    "type": "Scope",
+                    "runAfter": {
+                        "List_RSS": [
+                            "Succeeded"
+                        ]
+                    },
+                    "actions": {
+                        "For_Each_RSS_Item": {
+                            "type": "Foreach",
+                            "foreach": "@body('List_RSS')",
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 1
+                                }
+                            },
+                            "runAfter": {},
+                            "actions": {
+                                "Check_Duplicate": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{concat(parameters('functionsAppUrl'), '/api/CheckDuplicate')}",
+                                        "headers": {
+                                            "Content-Type": "application/json",
+                                            "x-functions-key": "@parameters('functionKey')"
+                                        },
+                                        "body": {
+                                            "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                                            "sourceName": "SecurityBlog"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "If_Not_Duplicate": {
+                                    "type": "If",
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "equals": [
+                                                    "@body('Check_Duplicate')?['isDuplicate']",
+                                                    false
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {
+                                        "Check_Duplicate": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "actions": {
+                                        "Call_Summarize_Post": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{concat(parameters('functionsAppUrl'), '/api/SummarizePost')}",
+                                                "headers": {
+                                                    "Content-Type": "application/json",
+                                                    "x-functions-key": "@parameters('functionKey')"
+                                                },
+                                                "body": {
+                                                    "title": "@{items('For_Each_RSS_Item')?['title']}",
+                                                    "content": "@{items('For_Each_RSS_Item')?['summary']}",
+                                                    "link": "@{items('For_Each_RSS_Item')?['primaryLink']}"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        },
+                                        "Insert_To_Table_Storage": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{concat(parameters('functionsAppUrl'), '/api/InsertProcessed')}",
+                                                "headers": {
+                                                    "Content-Type": "application/json",
+                                                    "x-functions-key": "@parameters('functionKey')"
+                                                },
+                                                "body": {
+                                                    "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                                                    "title": "@{items('For_Each_RSS_Item')?['title']}",
+                                                    "sourceName": "SecurityBlog"
+                                                }
+                                            },
+                                            "runAfter": {
+                                                "Call_Summarize_Post": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Append_NewPost": {
+                                            "type": "AppendToArrayVariable",
+                                            "inputs": {
+                                                "name": "newPosts",
+                                                "value": {
+                                                    "title": "@{items('For_Each_RSS_Item')?['title']}",
+                                                    "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                                                    "publishDate": "@{items('For_Each_RSS_Item')?['publishDate']}",
+                                                    "summary": "@{items('For_Each_RSS_Item')?['summary']}",
+                                                    "sourceName": "SecurityBlog",
+                                                    "englishSummary": "@{body('Call_Summarize_Post')?['englishSummary']}",
+                                                    "koreanSummary": "@{body('Call_Summarize_Post')?['koreanSummary']}"
+                                                }
+                                            },
+                                            "runAfter": {
+                                                "Call_Summarize_Post": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {}
+                                    }
+                                }
+                            }
+                        },
+                        "Generate_Email_HTML": {
+                            "type": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "uri": "@{concat(parameters('functionsAppUrl'), '/api/GenerateEmailHtml')}",
+                                "headers": {
+                                    "Content-Type": "application/json",
+                                    "x-functions-key": "@parameters('functionKey')"
+                                },
+                                "body": {
+                                    "posts": "@variables('newPosts')"
+                                }
+                            },
+                            "runAfter": {
+                                "For_Each_RSS_Item": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Send_Email": {
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "Subject": "@{body('Generate_Email_HTML')?['subject']}",
+                                    "To": "@parameters('emailRecipient')",
+                                    "Body": "@{body('Generate_Email_HTML')?['html']}",
+                                    "Importance": "High"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "referenceName": "office365"
+                                    }
+                                },
+                                "path": "/v2/Mail",
+                                "method": "post"
+                            },
+                            "runAfter": {
+                                "Generate_Email_HTML": [
+                                    "Succeeded"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "Send_Processing_Error_Email": {
+                    "type": "ApiConnection",
+                    "inputs": {
+                        "body": {
+                            "Subject": "❌ Logic App 오류 - 처리 실패 - @{utcNow()}",
+                            "To": "@parameters('emailRecipient')",
+                            "Body": "<h2>처리 실패</h2><p>실행 ID: @{workflow().run.name}</p><p>rssFeedUrl: @{parameters('rssFeedUrl')}</p><pre>@{string(actions('Scope_Process_RSS'))}</pre>",
+                            "Importance": "High"
+                        },
+                        "host": {
+                            "connection": {
+                                "referenceName": "office365"
+                            }
+                        },
+                        "path": "/v2/Mail",
+                        "method": "post"
+                    },
+                    "runAfter": {
+                        "Scope_Process_RSS": [
+                            "Failed",
+                            "TimedOut"
+                        ]
+                    }
+                },
+                "Terminate_On_Processing_Error": {
+                    "type": "Terminate",
+                    "inputs": {
+                        "runStatus": "Failed",
+                        "runError": {
+                            "code": "WorkflowProcessingFailed",
+                            "message": "Failed while processing RSS items or sending email"
+                        }
+                    },
+                    "runAfter": {
+                        "Send_Processing_Error_Email": [
+                            "Succeeded",
+                            "Failed"
+                        ]
+                    }
                 }
+            },
+            "else": {
+                "actions": {
+                    "Send_Invalid_RSS_Email": {
+                        "type": "ApiConnection",
+                        "inputs": {
+                            "body": {
+                                "Subject": "❌ Logic App 오류 - RSS URL 유효성 실패 - @{utcNow()}",
+                                "To": "@parameters('emailRecipient')",
+                                "Body": "<h2>RSS URL 유효성 검사 실패</h2><p>rssFeedUrl 값이 비어있거나 https://로 시작하지 않습니다.</p><p>rssFeedUrl: @{parameters('rssFeedUrl')}</p><p>실행 ID: @{workflow().run.name}</p>",
+                                "Importance": "High"
+                            },
+                            "host": {
+                                "connection": {
+                                    "referenceName": "office365"
+                                }
+                            },
+                            "path": "/v2/Mail",
+                            "method": "post"
+                        },
+                        "runAfter": {}
+                    },
+                    "Terminate_On_Invalid_RSS": {
+                        "type": "Terminate",
+                        "inputs": {
+                            "runStatus": "Failed",
+                            "runError": {
+                                "code": "InvalidRssFeedUrl",
+                                "message": "rssFeedUrl is empty or not https"
+                            }
+                        },
+                        "runAfter": {
+                            "Send_Invalid_RSS_Email": [
+                                "Succeeded",
+                                "Failed"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "outputs": {}
 }

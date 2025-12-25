@@ -73,6 +73,7 @@ jobs:
       logic-app-name: ${{ steps.deploy.outputs.logicAppName }}
       logic-app-id: ${{ steps.deploy.outputs.logicAppId }}
       function-app-name: ${{ steps.deploy.outputs.functionAppName }}
+      function-app-url: ${{ steps.deploy.outputs.functionAppUrl }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -100,6 +101,7 @@ jobs:
           
           # Bicep 諛고룷
           DEPLOYMENT_OUTPUT=$(az deployment group create \
+            --name main \
             --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
             --template-file infra/bicep/main.bicep \
             --parameters @infra/bicep/parameters.${ENV}.json \
@@ -112,10 +114,12 @@ jobs:
           LOGIC_APP_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppName.value')
           LOGIC_APP_ID=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppId.value')
           FUNCTION_APP_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.functionAppName.value')
+          FUNCTION_APP_URL=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.functionAppUrl.value')
           
           echo "logicAppName=$LOGIC_APP_NAME" >> $GITHUB_OUTPUT
           echo "logicAppId=$LOGIC_APP_ID" >> $GITHUB_OUTPUT
           echo "functionAppName=$FUNCTION_APP_NAME" >> $GITHUB_OUTPUT
+          echo "functionAppUrl=$FUNCTION_APP_URL" >> $GITHUB_OUTPUT
           
           echo "??Infrastructure deployed successfully"
           echo "Logic App: $LOGIC_APP_NAME"
@@ -184,6 +188,8 @@ jobs:
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
+          FUNCTIONS_APP_URL="${{ needs.deploy-infrastructure.outputs.function-app-url }}"
+          FUNCTION_APP_NAME="${{ needs.deploy-infrastructure.outputs.function-app-name }}"
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
@@ -198,6 +204,19 @@ jobs:
             --name main \
             --query "properties.outputs.office365ConnectionId.value" -o tsv)
 
+          # Get Function host key (x-functions-key)
+          KEYS_JSON=$(az functionapp keys list \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name "$FUNCTION_APP_NAME" \
+            --output json)
+
+          FUNCTION_KEY=$(echo "$KEYS_JSON" | jq -r '.functionKeys.default // .functionKeys["default"] // (.functionKeys | to_entries[0].value) // empty')
+          if [ -z "$FUNCTION_KEY" ] || [ "$FUNCTION_KEY" = "null" ]; then
+            echo "Failed to retrieve Function host key for app: $FUNCTION_APP_NAME"
+            echo "$KEYS_JSON"
+            exit 1
+          fi
+
           # Workflow payload 생성 (jq로 안전하게 구성)
           jq -n \
             --slurpfile def workflows/security-blog-definition.json \
@@ -205,6 +224,8 @@ jobs:
             --arg openAiDeploymentName "${{ secrets.OPENAI_DEPLOYMENT_NAME }}" \
             --arg emailRecipient "${{ secrets.EMAIL_RECIPIENT }}" \
             --arg rssFeedUrl "https://www.microsoft.com/en-us/security/blog/feed/" \
+            --arg functionsAppUrl "$FUNCTIONS_APP_URL" \
+            --arg functionKey "$FUNCTION_KEY" \
             --arg rssConnId "$RSS_CONN_ID" \
             --arg office365ConnId "$OFFICE365_CONN_ID" \
             '{
@@ -229,7 +250,9 @@ jobs:
                   openAiEndpoint: { value: $openAiEndpoint },
                   openAiDeploymentName: { value: $openAiDeploymentName },
                   emailRecipient: { value: $emailRecipient },
-                  rssFeedUrl: { value: $rssFeedUrl }
+                  rssFeedUrl: { value: $rssFeedUrl },
+                  functionsAppUrl: { value: $functionsAppUrl },
+                  functionKey: { value: $functionKey }
                 }
               }
             }' > workflow-payload.json
