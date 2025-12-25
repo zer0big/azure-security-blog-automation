@@ -24,9 +24,27 @@ env:
   RESOURCE_GROUP_PREFIX: rg-security-blog-automation
 
 jobs:
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.filter.outputs.functions }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Path filter
+        id: filter
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            functions:
+              - 'functions/**'
+
   validate:
     name: Validate Bicep Template
     runs-on: ubuntu-latest
+    needs: detect-changes
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -54,6 +72,7 @@ jobs:
     outputs:
       logic-app-name: ${{ steps.deploy.outputs.logicAppName }}
       logic-app-id: ${{ steps.deploy.outputs.logicAppId }}
+      function-app-name: ${{ steps.deploy.outputs.functionAppName }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -92,12 +111,56 @@ jobs:
           # Outputs 異붿텧
           LOGIC_APP_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppName.value')
           LOGIC_APP_ID=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.logicAppId.value')
+          FUNCTION_APP_NAME=$(echo $DEPLOYMENT_OUTPUT | jq -r '.properties.outputs.functionAppName.value')
           
           echo "logicAppName=$LOGIC_APP_NAME" >> $GITHUB_OUTPUT
           echo "logicAppId=$LOGIC_APP_ID" >> $GITHUB_OUTPUT
+          echo "functionAppName=$FUNCTION_APP_NAME" >> $GITHUB_OUTPUT
           
           echo "??Infrastructure deployed successfully"
           echo "Logic App: $LOGIC_APP_NAME"
+
+  deploy-functions:
+    name: Deploy Azure Functions
+    needs: [deploy-infrastructure, detect-changes]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-changes.outputs.functions == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Azure Login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build & publish Functions
+        run: |
+          dotnet publish functions/ProcessedPostsApi.csproj -c Release -o functions/publish
+
+      - name: Zip package
+        run: |
+          cd functions/publish
+          zip -r ../functionapp.zip .
+
+      - name: Zip Deploy
+        run: |
+          ENV="${{ github.event.inputs.environment || 'dev' }}"
+          FUNCTION_APP_NAME="${{ needs.deploy-infrastructure.outputs.function-app-name }}"
+
+          echo "Deploying Functions to: ${FUNCTION_APP_NAME} (rg: ${RESOURCE_GROUP_PREFIX}-${ENV})"
+
+          az functionapp deployment source config-zip \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name ${FUNCTION_APP_NAME} \
+            --src functions/functionapp.zip
 
   deploy-workflow:
     name: Deploy Logic App Workflow
