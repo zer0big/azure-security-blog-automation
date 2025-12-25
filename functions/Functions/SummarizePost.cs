@@ -78,7 +78,7 @@ public class SummarizePost
 
     private async Task<SummaryResult> GenerateSummaryAndTranslation(string title, string content, CancellationToken cancellationToken)
     {
-        var endpoint = Environment.GetEnvironmentVariable("AOAI_ENDPOINT")?.Trim();
+        var endpointRaw = Environment.GetEnvironmentVariable("AOAI_ENDPOINT")?.Trim();
         var deployment = Environment.GetEnvironmentVariable("AOAI_DEPLOYMENT")?.Trim();
         var apiVersion = Environment.GetEnvironmentVariable("AOAI_API_VERSION")?.Trim();
         if (string.IsNullOrWhiteSpace(apiVersion))
@@ -86,10 +86,12 @@ public class SummarizePost
             apiVersion = DefaultAoaiApiVersion;
         }
 
-        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(deployment))
+        if (string.IsNullOrWhiteSpace(endpointRaw) || string.IsNullOrWhiteSpace(deployment))
         {
             throw new InvalidOperationException("AOAI_ENDPOINT and AOAI_DEPLOYMENT app settings must be set.");
         }
+
+        var endpoint = NormalizeAoaiEndpoint(endpointRaw);
 
         var summaryPoints = GetSummaryPoints();
 
@@ -127,8 +129,7 @@ Provide the output in the following JSON format:
         var requestJson = JsonSerializer.Serialize(requestPayload);
         var requestContent = new StringContent(requestJson, Encoding.UTF8, "application/json");
 
-        var normalizedEndpoint = endpoint.EndsWith("/", StringComparison.Ordinal) ? endpoint : endpoint + "/";
-        var requestUri = $"{normalizedEndpoint}openai/deployments/{deployment}/chat/completions?api-version={apiVersion}";
+        var requestUri = $"{endpoint}openai/deployments/{deployment}/chat/completions?api-version={apiVersion}";
         
         var request = new HttpRequestMessage(HttpMethod.Post, requestUri);
 
@@ -179,6 +180,30 @@ Provide the output in the following JSON format:
             EnglishSummary = summaryData?.EnglishSummary ?? new[] { "Summary not available" },
             KoreanSummary = summaryData?.KoreanSummary ?? new[] { "요약을 사용할 수 없습니다" }
         };
+    }
+
+    private static string NormalizeAoaiEndpoint(string raw)
+    {
+        // Accept either a base endpoint like:
+        // - https://{resource}.openai.azure.com/
+        // - https://{resource}.cognitiveservices.azure.com/
+        // Or a full URL accidentally including path/query like:
+        // - https://.../openai/deployments/.../chat/completions?api-version=...
+        if (!Uri.TryCreate(raw, UriKind.Absolute, out var uri))
+        {
+            throw new InvalidOperationException($"AOAI_ENDPOINT is not a valid absolute URL: '{raw}'");
+        }
+
+        var builder = new UriBuilder(uri.Scheme, uri.Host)
+        {
+            Port = uri.IsDefaultPort ? -1 : uri.Port,
+            Path = "/",
+            Query = "",
+            Fragment = ""
+        };
+
+        var normalized = builder.Uri.ToString();
+        return normalized.EndsWith("/", StringComparison.Ordinal) ? normalized : normalized + "/";
     }
 
     private int GetSummaryPoints()
