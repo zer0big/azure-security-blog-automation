@@ -190,6 +190,13 @@ jobs:
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
           FUNCTIONS_APP_URL="${{ needs.deploy-infrastructure.outputs.function-app-url }}"
           FUNCTION_APP_NAME="${{ needs.deploy-infrastructure.outputs.function-app-name }}"
+
+          # CI/개발 환경에서 과도하게 오래 걸리는 것을 방지
+          if [ "$ENV" = "dev" ]; then
+            RSS_ITEM_LIMIT=2
+          else
+            RSS_ITEM_LIMIT=10
+          fi
           
           echo "Updating workflow for Logic App: $LOGIC_APP_NAME"
           
@@ -224,6 +231,7 @@ jobs:
             --arg openAiDeploymentName "${{ secrets.OPENAI_DEPLOYMENT_NAME }}" \
             --arg emailRecipient "${{ secrets.EMAIL_RECIPIENT }}" \
             --arg rssFeedUrl "https://www.microsoft.com/en-us/security/blog/feed/" \
+            --argjson rssItemLimit "$RSS_ITEM_LIMIT" \
             --arg functionsAppUrl "$FUNCTIONS_APP_URL" \
             --arg functionKey "$FUNCTION_KEY" \
             --arg rssConnId "$RSS_CONN_ID" \
@@ -251,6 +259,7 @@ jobs:
                   openAiDeploymentName: { value: $openAiDeploymentName },
                   emailRecipient: { value: $emailRecipient },
                   rssFeedUrl: { value: $rssFeedUrl },
+                  rssItemLimit: { value: $rssItemLimit },
                   functionsAppUrl: { value: $functionsAppUrl },
                   functionKey: { value: $functionKey }
                 }
