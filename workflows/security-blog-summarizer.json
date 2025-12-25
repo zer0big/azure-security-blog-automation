@@ -31,6 +31,18 @@
             "metadata": {
                 "description": "RSS 피드 URL"
             }
+        },
+        "functionsAppUrl": {
+            "type": "String",
+            "metadata": {
+                "description": "Azure Functions base URL (예: https://func-xxx.azurewebsites.net)"
+            }
+        },
+        "functionKey": {
+            "type": "SecureString",
+            "metadata": {
+                "description": "Azure Functions key (x-functions-key 헤더로 전달)"
+            }
         }
     },
     "triggers": {
@@ -54,6 +66,19 @@
     "actions": {
         "Validate_RSS_Feed_URL": {
             "actions": {
+                "Initialize_NewPosts": {
+                    "type": "InitializeVariable",
+                    "inputs": {
+                        "variables": [
+                            {
+                                "name": "newPosts",
+                                "type": "Array",
+                                "value": []
+                            }
+                        ]
+                    },
+                    "runAfter": {}
+                },
                 "List_RSS": {
                     "inputs": {
                         "host": {
@@ -67,27 +92,8 @@
                         },
                         "method": "get"
                     },
-                    "runAfter": {},
-                    "type": "ApiConnection"
-                },
-                "Send_Test_Email": {
-                    "inputs": {
-                        "body": {
-                            "Subject": "✅ Logic App 테스트 - @{utcNow()}",
-                            "To": "@parameters('emailRecipient')",
-                            "Body": "<h2>Logic App 동작 확인 테스트</h2><p><strong>이메일 발송 성공!</strong></p><p>수신자: @{parameters('emailRecipient')}</p><p>시간: @{utcNow()}</p><hr/><p>RSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.</p>",
-                            "Importance": "High"
-                        },
-                        "host": {
-                            "connection": {
-                                "referenceName": "office365"
-                            }
-                        },
-                        "path": "/v2/Mail",
-                        "method": "post"
-                    },
                     "runAfter": {
-                        "List_RSS": [
+                        "Initialize_NewPosts": [
                             "Succeeded"
                         ]
                     },
@@ -132,6 +138,207 @@
                         ]
                     },
                     "type": "Terminate"
+                },
+                "Scope_Process_RSS": {
+                    "type": "Scope",
+                    "runAfter": {
+                        "List_RSS": [
+                            "Succeeded"
+                        ]
+                    },
+                    "actions": {
+                        "For_Each_RSS_Item": {
+                            "type": "Foreach",
+                            "foreach": "@body('List_RSS')",
+                            "runtimeConfiguration": {
+                                "concurrency": {
+                                    "repetitions": 1
+                                }
+                            },
+                            "runAfter": {},
+                            "actions": {
+                                "Check_Duplicate": {
+                                    "type": "Http",
+                                    "inputs": {
+                                        "method": "POST",
+                                        "uri": "@{concat(parameters('functionsAppUrl'), '/api/CheckDuplicate')}",
+                                        "headers": {
+                                            "Content-Type": "application/json",
+                                            "x-functions-key": "@parameters('functionKey')"
+                                        },
+                                        "body": {
+                                            "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                                            "sourceName": "SecurityBlog"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                },
+                                "If_Not_Duplicate": {
+                                    "type": "If",
+                                    "expression": {
+                                        "and": [
+                                            {
+                                                "equals": [
+                                                    "@body('Check_Duplicate')?['isDuplicate']",
+                                                    false
+                                                ]
+                                            }
+                                        ]
+                                    },
+                                    "runAfter": {
+                                        "Check_Duplicate": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "actions": {
+                                        "Call_Summarize_Post": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{concat(parameters('functionsAppUrl'), '/api/SummarizePost')}",
+                                                "headers": {
+                                                    "Content-Type": "application/json",
+                                                    "x-functions-key": "@parameters('functionKey')"
+                                                },
+                                                "body": {
+                                                    "title": "@{items('For_Each_RSS_Item')?['title']}",
+                                                    "content": "@{items('For_Each_RSS_Item')?['summary']}",
+                                                    "link": "@{items('For_Each_RSS_Item')?['primaryLink']}"
+                                                }
+                                            },
+                                            "runAfter": {}
+                                        },
+                                        "Insert_To_Table_Storage": {
+                                            "type": "Http",
+                                            "inputs": {
+                                                "method": "POST",
+                                                "uri": "@{concat(parameters('functionsAppUrl'), '/api/InsertProcessed')}",
+                                                "headers": {
+                                                    "Content-Type": "application/json",
+                                                    "x-functions-key": "@parameters('functionKey')"
+                                                },
+                                                "body": {
+                                                    "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                                                    "title": "@{items('For_Each_RSS_Item')?['title']}",
+                                                    "sourceName": "SecurityBlog"
+                                                }
+                                            },
+                                            "runAfter": {
+                                                "Call_Summarize_Post": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        },
+                                        "Append_NewPost": {
+                                            "type": "AppendToArrayVariable",
+                                            "inputs": {
+                                                "name": "newPosts",
+                                                "value": {
+                                                    "title": "@{items('For_Each_RSS_Item')?['title']}",
+                                                    "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                                                    "publishDate": "@{items('For_Each_RSS_Item')?['publishDate']}",
+                                                    "summary": "@{items('For_Each_RSS_Item')?['summary']}",
+                                                    "sourceName": "SecurityBlog",
+                                                    "englishSummary": "@{body('Call_Summarize_Post')?['englishSummary']}",
+                                                    "koreanSummary": "@{body('Call_Summarize_Post')?['koreanSummary']}"
+                                                }
+                                            },
+                                            "runAfter": {
+                                                "Call_Summarize_Post": [
+                                                    "Succeeded"
+                                                ]
+                                            }
+                                        }
+                                    },
+                                    "else": {
+                                        "actions": {}
+                                    }
+                                }
+                            }
+                        },
+                        "Generate_Email_HTML": {
+                            "type": "Http",
+                            "inputs": {
+                                "method": "POST",
+                                "uri": "@{concat(parameters('functionsAppUrl'), '/api/GenerateEmailHtml')}",
+                                "headers": {
+                                    "Content-Type": "application/json",
+                                    "x-functions-key": "@parameters('functionKey')"
+                                },
+                                "body": {
+                                    "posts": "@variables('newPosts')"
+                                }
+                            },
+                            "runAfter": {
+                                "For_Each_RSS_Item": [
+                                    "Succeeded"
+                                ]
+                            }
+                        },
+                        "Send_Email": {
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "Subject": "@{body('Generate_Email_HTML')?['subject']}",
+                                    "To": "@parameters('emailRecipient')",
+                                    "Body": "@{body('Generate_Email_HTML')?['html']}",
+                                    "Importance": "High"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "referenceName": "office365"
+                                    }
+                                },
+                                "path": "/v2/Mail",
+                                "method": "post"
+                            },
+                            "runAfter": {
+                                "Generate_Email_HTML": [
+                                    "Succeeded"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "Send_Processing_Error_Email": {
+                    "type": "ApiConnection",
+                    "inputs": {
+                        "body": {
+                            "Subject": "❌ Logic App 오류 - 처리 실패 - @{utcNow()}",
+                            "To": "@parameters('emailRecipient')",
+                            "Body": "<h2>처리 실패</h2><p>실행 ID: @{workflow().run.name}</p><p>rssFeedUrl: @{parameters('rssFeedUrl')}</p><pre>@{string(actions('Scope_Process_RSS'))}</pre>",
+                            "Importance": "High"
+                        },
+                        "host": {
+                            "connection": {
+                                "referenceName": "office365"
+                            }
+                        },
+                        "path": "/v2/Mail",
+                        "method": "post"
+                    },
+                    "runAfter": {
+                        "Scope_Process_RSS": [
+                            "Failed",
+                            "TimedOut"
+                        ]
+                    }
+                },
+                "Terminate_On_Processing_Error": {
+                    "type": "Terminate",
+                    "inputs": {
+                        "runStatus": "Failed",
+                        "runError": {
+                            "code": "WorkflowProcessingFailed",
+                            "message": "Failed while processing RSS items or sending email"
+                        }
+                    },
+                    "runAfter": {
+                        "Send_Processing_Error_Email": [
+                            "Succeeded",
+                            "Failed"
+                        ]
+                    }
                 }
             },
             "else": {
