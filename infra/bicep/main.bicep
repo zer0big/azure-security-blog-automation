@@ -41,14 +41,6 @@ param emailRecipient string
 @description('RSS 피드 URL')
 param rssFeedUrl string = 'https://www.microsoft.com/en-us/security/blog/feed/'
 
-@description('RSS 피드 URL 배열 (향후 다중 RSS 지원)')
-param rssFeedUrls array = [
-  {
-    url: 'https://www.microsoft.com/en-us/security/blog/feed/'
-    sourceName: 'SecurityBlog'
-  }
-]
-
 // ============================================================================
 // Variables - Well-Architected Framework 명명 규칙
 // ============================================================================
@@ -255,10 +247,6 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
         {
           name: 'STORAGE_ACCOUNT_NAME'
           value: storageAccount.name
-        }
-        {
-          name: 'STORAGE_CONNECTION_STRING'
-          value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
         }
         {
           name: 'AOAI_ENDPOINT'
