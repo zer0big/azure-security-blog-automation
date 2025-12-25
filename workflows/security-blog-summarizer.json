@@ -64,21 +64,21 @@
         }
     },
     "actions": {
+        "Initialize_NewPosts": {
+            "type": "InitializeVariable",
+            "inputs": {
+                "variables": [
+                    {
+                        "name": "newPosts",
+                        "type": "Array",
+                        "value": []
+                    }
+                ]
+            },
+            "runAfter": {}
+        },
         "Validate_RSS_Feed_URL": {
             "actions": {
-                "Initialize_NewPosts": {
-                    "type": "InitializeVariable",
-                    "inputs": {
-                        "variables": [
-                            {
-                                "name": "newPosts",
-                                "type": "Array",
-                                "value": []
-                            }
-                        ]
-                    },
-                    "runAfter": {}
-                },
                 "List_RSS": {
                     "inputs": {
                         "host": {
@@ -92,11 +92,7 @@
                         },
                         "method": "get"
                     },
-                    "runAfter": {
-                        "Initialize_NewPosts": [
-                            "Succeeded"
-                        ]
-                    },
+                    "runAfter": {},
                     "type": "ApiConnection"
                 },
                 "Send_RSS_Error_Email": {
@@ -399,7 +395,11 @@
                     }
                 ]
             },
-            "runAfter": {},
+            "runAfter": {
+                "Initialize_NewPosts": [
+                    "Succeeded"
+                ]
+            },
             "type": "If"
         }
     },
