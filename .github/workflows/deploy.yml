@@ -324,27 +324,39 @@ jobs:
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
+          TRIGGER_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           
           echo "Triggering Logic App: $LOGIC_APP_NAME"
           # 수동 트리거 실행 (az rest 사용)
           az rest --method POST \
             --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/triggers/Recurrence/run?api-version=2016-06-01"
 
-          echo "⏳ Waiting for workflow to complete (30 seconds)..."
-          sleep 30
+          echo "⏳ Waiting for workflow to complete (up to 6 minutes)..."
 
           # 최근 실행 결과 확인 (az rest 사용)
-          RUN_STATUS=$(az rest --method GET \
-            --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs?api-version=2016-06-01&\$top=1" \
-            --query "value[0].properties.status" -o tsv)
-          echo "Run Status: $RUN_STATUS"
-          
-          if [ "$RUN_STATUS" == "Succeeded" ]; then
-            echo "??Integration test passed"
-          else
-            echo "??Integration test failed"
-            exit 1
-          fi
+          # NOTE: run 조회가 eventual consistency로 약간 늦을 수 있어 polling으로 확인
+          for i in $(seq 1 36); do
+            RUN_STATUS=$(az rest --method GET \
+              --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs?api-version=2016-06-01&\$top=1" \
+              --query "value[0].properties.status" -o tsv)
+
+            echo "[$i/36] Run Status: $RUN_STATUS (triggered at: $TRIGGER_TIME)"
+
+            if [ "$RUN_STATUS" = "Succeeded" ]; then
+              echo "??Integration test passed"
+              exit 0
+            fi
+
+            if [ "$RUN_STATUS" = "Failed" ] || [ "$RUN_STATUS" = "Cancelled" ] || [ "$RUN_STATUS" = "TimedOut" ]; then
+              echo "??Integration test failed"
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "??Integration test timed out (still not Succeeded)"
+          exit 1
 
   notify:
     name: Send Deployment Notification
