@@ -10,6 +10,7 @@ azure.env
 # Bicep
 *.bicep.generated.json
 bicepconfig.json
+infra/bicep/main.json
 
 # Terraform (optional)
 .terraform/
