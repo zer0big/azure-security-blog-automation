@@ -297,6 +297,27 @@ jobs:
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
           FUNCTION_APP_NAME="${{ needs.deploy-infrastructure.outputs.function-app-name }}"
+
+          # Resolve the Azure OpenAI resource scope for RBAC.
+          # Prefer explicit resource id secret if provided, otherwise derive from OPENAI_ENDPOINT to avoid drift.
+          OPENAI_SCOPE="${{ secrets.OPENAI_RESOURCE_ID }}"
+          OPENAI_ENDPOINT="${{ secrets.OPENAI_ENDPOINT }}"
+
+          if [ -z "$OPENAI_SCOPE" ]; then
+            AOAI_HOST=$(echo "$OPENAI_ENDPOINT" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+            AOAI_NAME=$(echo "$AOAI_HOST" | cut -d'.' -f1)
+            OPENAI_SCOPE=$(az resource list \
+              --resource-type "Microsoft.CognitiveServices/accounts" \
+              --name "$AOAI_NAME" \
+              --query "[0].id" -o tsv 2>/dev/null || true)
+          fi
+
+          if [ -z "$OPENAI_SCOPE" ]; then
+            echo "Failed to resolve Azure OpenAI resource id for RBAC scope. Provide secrets.OPENAI_RESOURCE_ID or a valid secrets.OPENAI_ENDPOINT."
+            exit 1
+          fi
+
+          echo "Using OpenAI RBAC scope: $OPENAI_SCOPE"
           
           # Logic App Managed Identity Principal ID 異붿텧
           PRINCIPAL_ID=$(az logic workflow show \
@@ -310,7 +331,7 @@ jobs:
           az role assignment create \
             --assignee $PRINCIPAL_ID \
             --role "Cognitive Services OpenAI User" \
-            --scope ${{ secrets.OPENAI_RESOURCE_ID }} \
+            --scope $OPENAI_SCOPE \
             || echo "Role assignment already exists"
 
           # Function App Managed Identity에도 동일 역할 할당 (Functions에서 AOAI 호출)
@@ -324,7 +345,7 @@ jobs:
           az role assignment create \
             --assignee $FUNC_PRINCIPAL_ID \
             --role "Cognitive Services OpenAI User" \
-            --scope ${{ secrets.OPENAI_RESOURCE_ID }} \
+            --scope $OPENAI_SCOPE \
             || echo "Role assignment already exists"
           
           echo "??Managed Identity configured successfully"
