@@ -109,7 +109,7 @@
                     "inputs": {
                         "host": {
                             "connection": {
-                                "referenceName": "rss"
+                                "name": "@parameters('$connections')['rss']['connectionId']"
                             }
                         },
                         "path": "/ListFeedItems",
@@ -131,7 +131,7 @@
                         },
                         "host": {
                             "connection": {
-                                "referenceName": "office365"
+                                "name": "@parameters('$connections')['office365']['connectionId']"
                             }
                         },
                         "path": "/v2/Mail",
@@ -307,7 +307,7 @@
                                 },
                                 "host": {
                                     "connection": {
-                                        "referenceName": "office365"
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
                                     }
                                 },
                                 "path": "/v2/Mail",
@@ -332,7 +332,7 @@
                         },
                         "host": {
                             "connection": {
-                                "referenceName": "office365"
+                                "name": "@parameters('$connections')['office365']['connectionId']"
                             }
                         },
                         "path": "/v2/Mail",
@@ -375,7 +375,7 @@
                             },
                             "host": {
                                 "connection": {
-                                    "referenceName": "office365"
+                                    "name": "@parameters('$connections')['office365']['connectionId']"
                                 }
                             },
                             "path": "/v2/Mail",
