@@ -294,26 +294,35 @@ jobs:
 
       - name: Assign OpenAI role to Logic App
         run: |
+          set -euo pipefail
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
           FUNCTION_APP_NAME="${{ needs.deploy-infrastructure.outputs.function-app-name }}"
 
           # Resolve the Azure OpenAI resource scope for RBAC.
-          # Prefer explicit resource id secret if provided, otherwise derive from OPENAI_ENDPOINT to avoid drift.
-          OPENAI_SCOPE="${{ secrets.OPENAI_RESOURCE_ID }}"
-          OPENAI_ENDPOINT="${{ secrets.OPENAI_ENDPOINT }}"
+          # Prefer the actually deployed Function App AOAI_ENDPOINT (best source of truth), then fall back to secrets.
+          FUNC_AOAI_ENDPOINT=$(az functionapp config appsettings list \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name $FUNCTION_APP_NAME \
+            --query "[?name=='AOAI_ENDPOINT'].value | [0]" -o tsv 2>/dev/null || true)
+
+          OPENAI_ENDPOINT="${FUNC_AOAI_ENDPOINT:-${{ secrets.OPENAI_ENDPOINT }}}"
+          AOAI_HOST=$(echo "$OPENAI_ENDPOINT" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+          AOAI_NAME=$(echo "$AOAI_HOST" | cut -d'.' -f1)
+
+          OPENAI_SCOPE=$(az resource list \
+            --resource-type "Microsoft.CognitiveServices/accounts" \
+            --name "$AOAI_NAME" \
+            --query "[0].id" -o tsv 2>/dev/null || true)
 
           if [ -z "$OPENAI_SCOPE" ]; then
-            AOAI_HOST=$(echo "$OPENAI_ENDPOINT" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
-            AOAI_NAME=$(echo "$AOAI_HOST" | cut -d'.' -f1)
-            OPENAI_SCOPE=$(az resource list \
-              --resource-type "Microsoft.CognitiveServices/accounts" \
-              --name "$AOAI_NAME" \
-              --query "[0].id" -o tsv 2>/dev/null || true)
+            OPENAI_SCOPE="${{ secrets.OPENAI_RESOURCE_ID }}"
           fi
 
           if [ -z "$OPENAI_SCOPE" ]; then
-            echo "Failed to resolve Azure OpenAI resource id for RBAC scope. Provide secrets.OPENAI_RESOURCE_ID or a valid secrets.OPENAI_ENDPOINT."
+            echo "❌ Failed to resolve Azure OpenAI resource id for RBAC scope."
+            echo "- Checked Function App setting AOAI_ENDPOINT: '${FUNC_AOAI_ENDPOINT:-<empty>}'"
+            echo "- Checked secrets.OPENAI_ENDPOINT and secrets.OPENAI_RESOURCE_ID"
             exit 1
           fi
 
@@ -328,11 +337,21 @@ jobs:
           echo "Logic App Principal ID: $PRINCIPAL_ID"
           
           # Azure OpenAI 由ъ냼?ㅼ뿉 ??븷 ?좊떦
-          az role assignment create \
-            --assignee $PRINCIPAL_ID \
-            --role "Cognitive Services OpenAI User" \
+          EXISTS=$(az role assignment list \
+            --assignee-object-id $PRINCIPAL_ID \
             --scope $OPENAI_SCOPE \
-            || echo "Role assignment already exists"
+            --role "Cognitive Services OpenAI User" \
+            --query "length(@)" -o tsv 2>/dev/null || echo "0")
+
+          if [ "$EXISTS" = "0" ]; then
+            az role assignment create \
+              --assignee-object-id $PRINCIPAL_ID \
+              --assignee-principal-type ServicePrincipal \
+              --role "Cognitive Services OpenAI User" \
+              --scope $OPENAI_SCOPE
+          else
+            echo "Role assignment already exists for Logic App."
+          fi
 
           # Function App Managed Identity에도 동일 역할 할당 (Functions에서 AOAI 호출)
           FUNC_PRINCIPAL_ID=$(az functionapp identity show \
@@ -342,11 +361,21 @@ jobs:
 
           echo "Function App Principal ID: $FUNC_PRINCIPAL_ID"
 
-          az role assignment create \
-            --assignee $FUNC_PRINCIPAL_ID \
-            --role "Cognitive Services OpenAI User" \
+          EXISTS=$(az role assignment list \
+            --assignee-object-id $FUNC_PRINCIPAL_ID \
             --scope $OPENAI_SCOPE \
-            || echo "Role assignment already exists"
+            --role "Cognitive Services OpenAI User" \
+            --query "length(@)" -o tsv 2>/dev/null || echo "0")
+
+          if [ "$EXISTS" = "0" ]; then
+            az role assignment create \
+              --assignee-object-id $FUNC_PRINCIPAL_ID \
+              --assignee-principal-type ServicePrincipal \
+              --role "Cognitive Services OpenAI User" \
+              --scope $OPENAI_SCOPE
+          else
+            echo "Role assignment already exists for Function App."
+          fi
           
           echo "??Managed Identity configured successfully"
 
