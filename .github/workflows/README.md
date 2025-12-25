@@ -63,13 +63,16 @@ GitHub Repository → Settings → Secrets and variables → Actions에서 설�
 | `AZURE_TENANT_ID` | Azure AD Tenant ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 | `AZURE_SUBSCRIPTION_ID` | Azure 구독 ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
 | `EMAIL_RECIPIENT` | 이메일 수신자 주소 | `your-email@example.com` |
-| `OPENAI_ENDPOINT` | Azure OpenAI 엔드포인트 | `https://your-openai.openai.azure.com/` |
+| `OPENAI_ENDPOINT` | Azure OpenAI 엔드포인트(루트 URL 권장) | `https://{resource}.cognitiveservices.azure.com/` |
 | `OPENAI_DEPLOYMENT_NAME` | GPT-4 배포 이름 | `gpt-4` |
-| `OPENAI_RESOURCE_ID` | Azure OpenAI 리소스 ID | `/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{name}` |
+| `OPENAI_RESOURCE_ID` | (선택) Azure OpenAI 리소스 ID | `/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{name}` |
 
 > NOTE:
 > - Logic App가 Functions를 호출할 때 쓰는 `x-functions-key`는 배포 시점에 `az functionapp keys list`로 자동 조회해서 워크플로 파라미터로 주입합니다.
 > - Azure OpenAI 호출은 **Functions(Managed Identity)** 기준으로 구성되어 있으며, 배포 단계에서 Function App에도 `Cognitive Services OpenAI User` 역할을 할당합니다.
+> - Table Storage 접근은 **Functions(Managed Identity)** + `STORAGE_ACCOUNT_NAME` 기반으로 동작합니다. (WAF 권장: 가능하면 커넥션 스트링/계정키 대신 관리형 ID 사용)
+> - `OPENAI_ENDPOINT`는 가능하면 루트 URL을 넣는 것을 권장합니다. (예: `https://{resource}.cognitiveservices.azure.com/`)
+>   - 실수로 `.../openai/deployments/.../chat/completions?...` 같은 “전체 호출 URL”을 넣더라도, Functions에서 루트로 정규화해서 호출하도록 방어 로직이 들어가 있습니다.
 
 ## 🔧 Service Principal 생성
 
@@ -213,6 +216,10 @@ az deployment group create \
 
 - **절대 커밋 금지**: `.env`, `parameters.*.json`에 민감 정보 포함 금지
 - **정기 갱신**: Service Principal 자격 증명 6개월마다 갱신
+
+WAF(Security) 관점에서, 가능한 설정은 **secretless(Managed Identity)** 로 구성합니다.
+- 예: Storage Table은 MI로 접근(코드에서 `DefaultAzureCredential` 사용)
+- 불가피하게 키가 필요한 항목(예: Functions 런타임 스토리지/콘텐츠 공유)은 App Settings에 저장되며, 필요 시 Key Vault reference로 대체를 고려합니다.
 
 ### 3. 비용 관리
 
