@@ -74,6 +74,11 @@
 - Office 365 계정 (Exchange Online 라이선스)
 - Git
 
+### Function App 설정 값 (App Settings)
+
+- `AOAI_API_KEY`: Azure OpenAI API Key (필수)
+- `SUMMARY_POINTS`: 요약 포인트 개수(기본 3, 범위 1~10). Azure Portal → Function App → Configuration에서 변경하면 재배포 없이 즉시 반영됩니다.
+
 ### 배포 단계
 
 #### 1. 리포지토리 클론
