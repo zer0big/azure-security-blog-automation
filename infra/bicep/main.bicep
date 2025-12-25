@@ -260,6 +260,18 @@ resource functionApp 'Microsoft.Web/sites@2023-01-01' = {
           name: 'STORAGE_CONNECTION_STRING'
           value: 'DefaultEndpointsProtocol=https;AccountName=${storageAccount.name};EndpointSuffix=${az.environment().suffixes.storage};AccountKey=${storageAccount.listKeys().keys[0].value}'
         }
+        {
+          name: 'AOAI_ENDPOINT'
+          value: openAiEndpoint
+        }
+        {
+          name: 'AOAI_DEPLOYMENT'
+          value: openAiDeploymentName
+        }
+        {
+          name: 'AOAI_API_VERSION'
+          value: '2024-12-01-preview'
+        }
       ]
       netFrameworkVersion: 'v8.0'
       use32BitWorkerProcess: false

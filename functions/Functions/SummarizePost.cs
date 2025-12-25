@@ -1,6 +1,8 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using Azure.Core;
+using Azure.Identity;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using System.Linq;
@@ -11,17 +13,18 @@ namespace ProcessedPostsApi.Functions;
 public class SummarizePost
 {
     private readonly ILogger<SummarizePost> _logger;
-    private static readonly HttpClient _httpClient = new HttpClient();
+    private static readonly HttpClient _httpClient = new HttpClient
+    {
+        Timeout = TimeSpan.FromMinutes(2)
+    };
+    private static readonly TokenCredential _credential = new DefaultAzureCredential();
     
     // Azure OpenAI Configuration
     private const int DefaultSummaryPoints = 3;
     private const int MinSummaryPoints = 1;
     private const int MaxSummaryPoints = 10;
 
-    private const string AOAI_ENDPOINT = "https://aoai-knowledge-base-demo.cognitiveservices.azure.com/";
-    private const string AOAI_DEPLOYMENT = "gpt-4o";
-    private const string AOAI_API_VERSION = "2024-12-01-preview";
-    private static readonly string AOAI_API_KEY = Environment.GetEnvironmentVariable("AOAI_API_KEY") ?? throw new InvalidOperationException("AOAI_API_KEY environment variable not set");
+    private const string DefaultAoaiApiVersion = "2024-12-01-preview";
 
     public SummarizePost(ILogger<SummarizePost> logger)
     {
@@ -30,7 +33,8 @@ public class SummarizePost
 
     [Function("SummarizePost")]
     public async Task<HttpResponseData> Run(
-        [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req)
+        [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequestData req,
+        CancellationToken cancellationToken)
     {
         _logger.LogInformation("SummarizePost function triggered");
 
@@ -54,7 +58,7 @@ public class SummarizePost
             _logger.LogInformation($"Processing post: {data.Title}");
 
             // Call Azure OpenAI for summarization and translation
-            var summary = await GenerateSummaryAndTranslation(data.Title, data.Content);
+            var summary = await GenerateSummaryAndTranslation(data.Title, data.Content, cancellationToken);
 
             // Return result
             var response = req.CreateResponse(HttpStatusCode.OK);
@@ -72,8 +76,21 @@ public class SummarizePost
         }
     }
 
-    private async Task<SummaryResult> GenerateSummaryAndTranslation(string title, string content)
+    private async Task<SummaryResult> GenerateSummaryAndTranslation(string title, string content, CancellationToken cancellationToken)
     {
+        var endpoint = Environment.GetEnvironmentVariable("AOAI_ENDPOINT")?.Trim();
+        var deployment = Environment.GetEnvironmentVariable("AOAI_DEPLOYMENT")?.Trim();
+        var apiVersion = Environment.GetEnvironmentVariable("AOAI_API_VERSION")?.Trim();
+        if (string.IsNullOrWhiteSpace(apiVersion))
+        {
+            apiVersion = DefaultAoaiApiVersion;
+        }
+
+        if (string.IsNullOrWhiteSpace(endpoint) || string.IsNullOrWhiteSpace(deployment))
+        {
+            throw new InvalidOperationException("AOAI_ENDPOINT and AOAI_DEPLOYMENT app settings must be set.");
+        }
+
         var summaryPoints = GetSummaryPoints();
 
         var systemPrompt = $@"You are an expert security analyst. Your task is to:
@@ -110,15 +127,30 @@ Provide the output in the following JSON format:
         var requestJson = JsonSerializer.Serialize(requestPayload);
         var requestContent = new StringContent(requestJson, Encoding.UTF8, "application/json");
 
-        var requestUri = $"{AOAI_ENDPOINT}openai/deployments/{AOAI_DEPLOYMENT}/chat/completions?api-version={AOAI_API_VERSION}";
+        var normalizedEndpoint = endpoint.EndsWith("/", StringComparison.Ordinal) ? endpoint : endpoint + "/";
+        var requestUri = $"{normalizedEndpoint}openai/deployments/{deployment}/chat/completions?api-version={apiVersion}";
         
         var request = new HttpRequestMessage(HttpMethod.Post, requestUri);
-        request.Headers.Add("api-key", AOAI_API_KEY);
+
+        // Prefer Entra ID (Managed Identity) for Azure OpenAI. Fall back to api-key for local/dev if provided.
+        var apiKey = Environment.GetEnvironmentVariable("AOAI_API_KEY")?.Trim();
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            request.Headers.Add("api-key", apiKey);
+        }
+        else
+        {
+            var token = await _credential.GetTokenAsync(
+                new TokenRequestContext(new[] { "https://cognitiveservices.azure.com/.default" }),
+                cancellationToken);
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token.Token);
+        }
+
         request.Content = requestContent;
 
         _logger.LogInformation($"Calling Azure OpenAI at {requestUri}");
 
-        var response = await _httpClient.SendAsync(request);
+        var response = await _httpClient.SendAsync(request, cancellationToken);
         var responseContent = await response.Content.ReadAsStringAsync();
 
         if (!response.IsSuccessStatusCode)
@@ -134,8 +166,6 @@ Provide the output in the following JSON format:
             PropertyNameCaseInsensitive = true
         });
         var contentText = aoaiResponse?.Choices?[0]?.Message?.Content ?? "{}";
-
-        _logger.LogInformation($"Azure OpenAI content: {contentText}");
 
         var summaryData = JsonSerializer.Deserialize<SummaryData>(contentText, new JsonSerializerOptions
         {
