@@ -67,7 +67,9 @@ GitHub Repository → Settings → Secrets and variables → Actions에서 설�
 | `OPENAI_DEPLOYMENT_NAME` | GPT-4 배포 이름 | `gpt-4` |
 | `OPENAI_RESOURCE_ID` | Azure OpenAI 리소스 ID | `/subscriptions/{sub-id}/resourceGroups/{rg}/providers/Microsoft.CognitiveServices/accounts/{name}` |
 
-> NOTE: Logic App가 Functions를 호출할 때 쓰는 `x-functions-key`는 배포 시점에 `az functionapp keys list`로 자동 조회해서 워크플로 파라미터로 주입합니다.
+> NOTE:
+> - Logic App가 Functions를 호출할 때 쓰는 `x-functions-key`는 배포 시점에 `az functionapp keys list`로 자동 조회해서 워크플로 파라미터로 주입합니다.
+> - Azure OpenAI 호출은 **Functions(Managed Identity)** 기준으로 구성되어 있으며, 배포 단계에서 Function App에도 `Cognitive Services OpenAI User` 역할을 할당합니다.
 
 ## 🔧 Service Principal 생성
 

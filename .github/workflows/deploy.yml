@@ -287,6 +287,7 @@ jobs:
         run: |
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
+          FUNCTION_APP_NAME="${{ needs.deploy-infrastructure.outputs.function-app-name }}"
           
           # Logic App Managed Identity Principal ID 異붿텧
           PRINCIPAL_ID=$(az logic workflow show \
@@ -299,6 +300,20 @@ jobs:
           # Azure OpenAI 由ъ냼?ㅼ뿉 ??븷 ?좊떦
           az role assignment create \
             --assignee $PRINCIPAL_ID \
+            --role "Cognitive Services OpenAI User" \
+            --scope ${{ secrets.OPENAI_RESOURCE_ID }} \
+            || echo "Role assignment already exists"
+
+          # Function App Managed Identity에도 동일 역할 할당 (Functions에서 AOAI 호출)
+          FUNC_PRINCIPAL_ID=$(az functionapp identity show \
+            --resource-group ${RESOURCE_GROUP_PREFIX}-${ENV} \
+            --name $FUNCTION_APP_NAME \
+            --query principalId -o tsv)
+
+          echo "Function App Principal ID: $FUNC_PRINCIPAL_ID"
+
+          az role assignment create \
+            --assignee $FUNC_PRINCIPAL_ID \
             --role "Cognitive Services OpenAI User" \
             --scope ${{ secrets.OPENAI_RESOURCE_ID }} \
             || echo "Role assignment already exists"
@@ -325,37 +340,70 @@ jobs:
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
           TRIGGER_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+
+          # 트리거 전 "가장 최근 run"을 저장해두고, 트리거 후 새로 생성된 run을 찾아서 그 run만 추적
+          PRE_RUN_ID=$(az rest --method GET \
+            --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs?api-version=2016-06-01&\$top=1" \
+            --query "value[0].name" -o tsv 2>/dev/null || true)
+          echo "Pre-run id: ${PRE_RUN_ID:-<none>}"
           
           echo "Triggering Logic App: $LOGIC_APP_NAME"
           # 수동 트리거 실행 (az rest 사용)
           az rest --method POST \
             --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/triggers/Recurrence/run?api-version=2016-06-01"
 
-          echo "⏳ Waiting for workflow to complete (up to 6 minutes)..."
+          echo "🔎 Finding newly created run id..."
+          RUN_ID=""
+          for i in $(seq 1 24); do
+            RUN_ID=$(az rest --method GET \
+              --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs?api-version=2016-06-01&\$top=5" \
+              -o json | jq -r --arg pre "$PRE_RUN_ID" '.value | map(select(.name != $pre)) | .[0].name // empty')
 
-          # 최근 실행 결과 확인 (az rest 사용)
-          # NOTE: run 조회가 eventual consistency로 약간 늦을 수 있어 polling으로 확인
-          for i in $(seq 1 36); do
+            if [ -n "$RUN_ID" ] && [ "$RUN_ID" != "null" ]; then
+              echo "Run id: $RUN_ID"
+              break
+            fi
+
+            echo "[$i/24] waiting for run creation..."
+            sleep 5
+          done
+
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "❌ Failed to discover new run id"
+            exit 1
+          fi
+
+          echo "⏳ Waiting for workflow to complete (up to 10 minutes)..."
+
+          for i in $(seq 1 60); do
             RUN_STATUS=$(az rest --method GET \
-              --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs?api-version=2016-06-01&\$top=1" \
-              --query "value[0].properties.status" -o tsv)
+              --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs/$RUN_ID?api-version=2016-06-01" \
+              --query "properties.status" -o tsv)
 
-            echo "[$i/36] Run Status: $RUN_STATUS (triggered at: $TRIGGER_TIME)"
+            echo "[$i/60] Run Status: $RUN_STATUS (runId: $RUN_ID, triggered at: $TRIGGER_TIME)"
 
             if [ "$RUN_STATUS" = "Succeeded" ]; then
-              echo "??Integration test passed"
+              echo "✅ Integration test passed"
               exit 0
             fi
 
             if [ "$RUN_STATUS" = "Failed" ] || [ "$RUN_STATUS" = "Cancelled" ] || [ "$RUN_STATUS" = "TimedOut" ]; then
-              echo "??Integration test failed"
+              echo "❌ Integration test failed"
+              # 실패 시 액션 요약을 추가로 출력
+              az rest --method GET \
+                --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs/$RUN_ID/actions?api-version=2016-06-01" \
+                -o json | jq -r '.value[] | "- \(.name): \(.properties.status)"' || true
               exit 1
             fi
 
             sleep 10
           done
 
-          echo "??Integration test timed out (still not Succeeded)"
+          echo "⏰ Integration test timed out (still not Succeeded)"
+          # 타임아웃 시 액션 요약 출력
+          az rest --method GET \
+            --uri "/subscriptions/${{ secrets.AZURE_SUBSCRIPTION_ID }}/resourceGroups/${RESOURCE_GROUP_PREFIX}-${ENV}/providers/Microsoft.Logic/workflows/$LOGIC_APP_NAME/runs/$RUN_ID/actions?api-version=2016-06-01" \
+            -o json | jq -r '.value[] | "- \(.name): \(.properties.status)"' || true
           exit 1
 
   notify:
