@@ -294,7 +294,8 @@ jobs:
 
       - name: Assign OpenAI role to Logic App
         run: |
-          set -euo pipefail
+          set -u
+          set -o pipefail
           ENV="${{ github.event.inputs.environment || 'dev' }}"
           LOGIC_APP_NAME="${{ needs.deploy-infrastructure.outputs.logic-app-name }}"
           FUNCTION_APP_NAME="${{ needs.deploy-infrastructure.outputs.function-app-name }}"
@@ -338,19 +339,24 @@ jobs:
           
           # Azure OpenAI 由ъ냼?ㅼ뿉 ??븷 ?좊떦
           EXISTS=$(az role assignment list \
-            --assignee-object-id $PRINCIPAL_ID \
+            --assignee $PRINCIPAL_ID \
             --scope $OPENAI_SCOPE \
             --role "Cognitive Services OpenAI User" \
-            --query "length(@)" -o tsv 2>/dev/null || echo "0")
+            --query "length(@)" -o tsv 2>/dev/null || echo "")
 
-          if [ "$EXISTS" = "0" ]; then
-            az role assignment create \
+          if [ -n "$EXISTS" ] && [ "$EXISTS" != "0" ]; then
+            echo "Role assignment already exists for Logic App."
+          else
+            if az role assignment create \
               --assignee-object-id $PRINCIPAL_ID \
               --assignee-principal-type ServicePrincipal \
               --role "Cognitive Services OpenAI User" \
-              --scope $OPENAI_SCOPE
-          else
-            echo "Role assignment already exists for Logic App."
+              --scope $OPENAI_SCOPE; then
+              echo "Role assignment created for Logic App."
+            else
+              echo "⚠️ Failed to create role assignment for Logic App (likely missing Microsoft.Authorization/roleAssignments/write)."
+              echo "   If integration test fails with PermissionDenied, grant the GitHub OIDC principal 'Owner' or 'User Access Administrator' on the OpenAI scope (or broader)."
+            fi
           fi
 
           # Function App Managed Identity에도 동일 역할 할당 (Functions에서 AOAI 호출)
@@ -362,19 +368,24 @@ jobs:
           echo "Function App Principal ID: $FUNC_PRINCIPAL_ID"
 
           EXISTS=$(az role assignment list \
-            --assignee-object-id $FUNC_PRINCIPAL_ID \
+            --assignee $FUNC_PRINCIPAL_ID \
             --scope $OPENAI_SCOPE \
             --role "Cognitive Services OpenAI User" \
-            --query "length(@)" -o tsv 2>/dev/null || echo "0")
+            --query "length(@)" -o tsv 2>/dev/null || echo "")
 
-          if [ "$EXISTS" = "0" ]; then
-            az role assignment create \
+          if [ -n "$EXISTS" ] && [ "$EXISTS" != "0" ]; then
+            echo "Role assignment already exists for Function App."
+          else
+            if az role assignment create \
               --assignee-object-id $FUNC_PRINCIPAL_ID \
               --assignee-principal-type ServicePrincipal \
               --role "Cognitive Services OpenAI User" \
-              --scope $OPENAI_SCOPE
-          else
-            echo "Role assignment already exists for Function App."
+              --scope $OPENAI_SCOPE; then
+              echo "Role assignment created for Function App."
+            else
+              echo "⚠️ Failed to create role assignment for Function App (likely missing Microsoft.Authorization/roleAssignments/write)."
+              echo "   If integration test fails with PermissionDenied, grant the GitHub OIDC principal 'Owner' or 'User Access Administrator' on the OpenAI scope (or broader)."
+            fi
           fi
           
           echo "??Managed Identity configured successfully"
