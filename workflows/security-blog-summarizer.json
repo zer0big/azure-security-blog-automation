@@ -32,6 +32,13 @@
                 "description": "RSS 피드 URL"
             }
         },
+        "rssItemLimit": {
+            "type": "Int",
+            "defaultValue": 3,
+            "metadata": {
+                "description": "한 번 실행에서 처리할 RSS 아이템 최대 개수 (CI 안정화/부하 제어용)"
+            }
+        },
         "functionsAppUrl": {
             "type": "String",
             "metadata": {
@@ -145,7 +152,7 @@
                     "actions": {
                         "For_Each_RSS_Item": {
                             "type": "Foreach",
-                            "foreach": "@body('List_RSS')",
+                            "foreach": "@take(body('List_RSS'), parameters('rssItemLimit'))",
                             "runtimeConfiguration": {
                                 "concurrency": {
                                     "repetitions": 1
