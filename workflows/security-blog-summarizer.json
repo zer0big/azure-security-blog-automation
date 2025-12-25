@@ -52,44 +52,148 @@
         }
     },
     "actions": {
-        "List_RSS": {
-            "inputs": {
-                "host": {
-                    "connection": {
-                        "referenceName": "rss"
-                    }
+        "Validate_RSS_Feed_URL": {
+            "actions": {
+                "List_RSS": {
+                    "inputs": {
+                        "host": {
+                            "connection": {
+                                "referenceName": "rss"
+                            }
+                        },
+                        "path": "/ListFeedItems",
+                        "queries": {
+                            "feedUrl": "@parameters('rssFeedUrl')"
+                        },
+                        "method": "get"
+                    },
+                    "runAfter": {},
+                    "type": "ApiConnection"
                 },
-                "path": "/ListFeedItems",
-                "queries": {
-                    "feedUrl": "@parameters('rssFeedUrl')"
+                "Send_Test_Email": {
+                    "inputs": {
+                        "body": {
+                            "Subject": "✅ Logic App 테스트 - @{utcNow()}",
+                            "To": "@parameters('emailRecipient')",
+                            "Body": "<h2>Logic App 동작 확인 테스트</h2><p><strong>이메일 발송 성공!</strong></p><p>수신자: @{parameters('emailRecipient')}</p><p>시간: @{utcNow()}</p><hr/><p>RSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.</p>",
+                            "Importance": "High"
+                        },
+                        "host": {
+                            "connection": {
+                                "referenceName": "office365"
+                            }
+                        },
+                        "path": "/v2/Mail",
+                        "method": "post"
+                    },
+                    "runAfter": {
+                        "List_RSS": [
+                            "Succeeded"
+                        ]
+                    },
+                    "type": "ApiConnection"
                 },
-                "method": "get"
+                "Send_RSS_Error_Email": {
+                    "inputs": {
+                        "body": {
+                            "Subject": "❌ Logic App 오류 - RSS 조회 실패 - @{utcNow()}",
+                            "To": "@parameters('emailRecipient')",
+                            "Body": "<h2>RSS 조회 실패</h2><p>rssFeedUrl: @{parameters('rssFeedUrl')}</p><p>실행 ID: @{workflow().run.name}</p><p>상태: @{actions('List_RSS').status}</p><pre>@{string(actions('List_RSS'))}</pre>",
+                            "Importance": "High"
+                        },
+                        "host": {
+                            "connection": {
+                                "referenceName": "office365"
+                            }
+                        },
+                        "path": "/v2/Mail",
+                        "method": "post"
+                    },
+                    "runAfter": {
+                        "List_RSS": [
+                            "Failed",
+                            "TimedOut"
+                        ]
+                    },
+                    "type": "ApiConnection"
+                },
+                "Terminate_On_RSS_Error": {
+                    "inputs": {
+                        "runStatus": "Failed",
+                        "runError": {
+                            "code": "RssFeedFetchFailed",
+                            "message": "Failed to fetch RSS feed items"
+                        }
+                    },
+                    "runAfter": {
+                        "Send_RSS_Error_Email": [
+                            "Succeeded",
+                            "Failed"
+                        ]
+                    },
+                    "type": "Terminate"
+                }
             },
-            "runAfter": {},
-            "type": "ApiConnection"
-        },
-        "Send_Test_Email": {
-            "inputs": {
-                "body": {
-                    "Subject": "✅ Logic App 테스트 - @{utcNow()}",
-                    "To": "@parameters('emailRecipient')",
-                    "Body": "<h2>Logic App 동작 확인 테스트</h2><p><strong>이메일 발송 성공!</strong></p><p>수신자: @{parameters('emailRecipient')}</p><p>시간: @{utcNow()}</p><hr/><p>RSS 피드 조회 완료. 이 이메일이 도착했다면 전체 시스템이 정상 작동 중입니다.</p>",
-                    "Importance": "High"
-                },
-                "host": {
-                    "connection": {
-                        "referenceName": "office365"
+            "else": {
+                "actions": {
+                    "Send_Invalid_RSS_Email": {
+                        "inputs": {
+                            "body": {
+                                "Subject": "❌ Logic App 오류 - RSS URL 유효성 실패 - @{utcNow()}",
+                                "To": "@parameters('emailRecipient')",
+                                "Body": "<h2>RSS URL 유효성 검사 실패</h2><p>rssFeedUrl 값이 비어있거나 https://로 시작하지 않습니다.</p><p>rssFeedUrl: @{parameters('rssFeedUrl')}</p><p>실행 ID: @{workflow().run.name}</p>",
+                                "Importance": "High"
+                            },
+                            "host": {
+                                "connection": {
+                                    "referenceName": "office365"
+                                }
+                            },
+                            "path": "/v2/Mail",
+                            "method": "post"
+                        },
+                        "runAfter": {},
+                        "type": "ApiConnection"
+                    },
+                    "Terminate_On_Invalid_RSS": {
+                        "inputs": {
+                            "runStatus": "Failed",
+                            "runError": {
+                                "code": "InvalidRssFeedUrl",
+                                "message": "rssFeedUrl is empty or not https"
+                            }
+                        },
+                        "runAfter": {
+                            "Send_Invalid_RSS_Email": [
+                                "Succeeded",
+                                "Failed"
+                            ]
+                        },
+                        "type": "Terminate"
                     }
-                },
-                "path": "/v2/Mail",
-                "method": "post"
+                }
             },
-            "runAfter": {
-                "List_RSS": [
-                    "Succeeded"
+            "expression": {
+                "and": [
+                    {
+                        "not": [
+                            {
+                                "empty": [
+                                    "@parameters('rssFeedUrl')"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "startsWith": [
+                            "@parameters('rssFeedUrl')",
+                            "https://"
+                        ]
+                    }
                 ]
             },
-            "type": "ApiConnection"
+            "runAfter": {},
+            "type": "If"
         }
     },
     "outputs": {}
