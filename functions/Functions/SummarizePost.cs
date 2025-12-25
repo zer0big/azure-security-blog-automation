@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 
 namespace ProcessedPostsApi.Functions;
@@ -13,6 +14,10 @@ public class SummarizePost
     private static readonly HttpClient _httpClient = new HttpClient();
     
     // Azure OpenAI Configuration
+    private const int DefaultSummaryPoints = 3;
+    private const int MinSummaryPoints = 1;
+    private const int MaxSummaryPoints = 10;
+
     private const string AOAI_ENDPOINT = "https://aoai-knowledge-base-demo.cognitiveservices.azure.com/";
     private const string AOAI_DEPLOYMENT = "gpt-4o";
     private const string AOAI_API_VERSION = "2024-12-01-preview";
@@ -69,20 +74,25 @@ public class SummarizePost
 
     private async Task<SummaryResult> GenerateSummaryAndTranslation(string title, string content)
     {
-        var systemPrompt = @"You are an expert security analyst. Your task is to:
-1. Summarize the given security blog post in exactly 3 concise bullet points (English)
-2. Translate the summary into Korean (3 bullet points)
+        var summaryPoints = GetSummaryPoints();
 
-Keep each bullet point under 150 characters. Focus on key insights, threats, and actionable information.";
+        var systemPrompt = $@"You are an expert security analyst. Your task is to:
+    1. Summarize the given security blog post in exactly {summaryPoints} concise bullet points (English)
+    2. Translate the summary into Korean ({summaryPoints} bullet points)
 
-        var userPrompt = $@"Title: {title}
+    Keep each bullet point under 150 characters. Focus on key insights, threats, and actionable information.";
+
+        var englishExample = string.Join(", ", Enumerable.Range(1, summaryPoints).Select(i => $"\"point {i}\""));
+        var koreanExample = string.Join(", ", Enumerable.Range(1, summaryPoints).Select(i => $"\"요점 {i}\""));
+
+                var userPrompt = $@"Title: {title}
 
 Content: {content}
 
 Provide the output in the following JSON format:
 {{
-  ""englishSummary"": [""point 1"", ""point 2"", ""point 3""],
-  ""koreanSummary"": [""요점 1"", ""요점 2"", ""요점 3""]
+    ""englishSummary"": [{englishExample}],
+    ""koreanSummary"": [{koreanExample}]
 }}";
 
         var requestPayload = new
@@ -139,6 +149,29 @@ Provide the output in the following JSON format:
             EnglishSummary = summaryData?.EnglishSummary ?? new[] { "Summary not available" },
             KoreanSummary = summaryData?.KoreanSummary ?? new[] { "요약을 사용할 수 없습니다" }
         };
+    }
+
+    private int GetSummaryPoints()
+    {
+        var raw = Environment.GetEnvironmentVariable("SUMMARY_POINTS");
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            return DefaultSummaryPoints;
+        }
+
+        if (!int.TryParse(raw.Trim(), out var points))
+        {
+            _logger.LogWarning("Invalid SUMMARY_POINTS value '{Value}'. Falling back to {Default}.", raw, DefaultSummaryPoints);
+            return DefaultSummaryPoints;
+        }
+
+        if (points < MinSummaryPoints || points > MaxSummaryPoints)
+        {
+            _logger.LogWarning("SUMMARY_POINTS out of range ({Min}-{Max}): {Value}. Falling back to {Default}.", MinSummaryPoints, MaxSummaryPoints, points, DefaultSummaryPoints);
+            return DefaultSummaryPoints;
+        }
+
+        return points;
     }
 
     // Request/Response DTOs
