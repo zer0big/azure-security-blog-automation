@@ -2,6 +2,20 @@
 
 Microsoft 보안 관련 블로그의 최신 게시글을 자동으로 수집하고 AI 요약과 함께 이메일로 발송하는 Azure 자동화 시스템입니다.
 
+## 📋 Table of Contents
+
+- [주요 기능](#-주요-기능)
+- [아키텍처](#-아키텍처)
+- [빠른 시작](#-빠른-시작)
+- [구성 요소](#-구성-요소)
+- [배포 가이드](#-배포-가이드)
+- [프로젝트 구조](#-프로젝트-구조)
+- [문서](#-문서)
+- [이메일 형식](#-이메일-형식)
+- [모니터링](#-모니터링)
+- [문제 해결](#-문제-해결)
+- [라이선스](#-라이선스)
+
 ## 🎯 주요 기능
 
 - **5개 Microsoft 보안 RSS 피드 모니터링**
@@ -11,7 +25,7 @@ Microsoft 보안 관련 블로그의 최신 게시글을 자동으로 수집하�
   - ☁️ Azure Security Blog
   - 👁️ Microsoft Sentinel (Tech Community)
 
-- **AI 기반 자동 요약** (Azure OpenAI)
+- **AI 기반 자동 요약** (Azure OpenAI GPT-4o)
   - 영문 핵심 인사이트 추출
   - 한국어 자동 번역 및 요약
   - 보안 이슈 핵심 포인트 강조
@@ -24,35 +38,119 @@ Microsoft 보안 관련 블로그의 최신 게시글을 자동으로 수집하�
 
 ## 🏗️ 아키텍처
 
+```mermaid
+graph TB
+    subgraph "Triggers"
+        T1[Recurrence Trigger<br/>07:00, 15:00, 22:00 KST]
+    end
+    
+    subgraph "Logic App Standard"
+        LA[Logic App Workflow]
+        RSS1[🔒 MS Security Blog]
+        RSS2[🔍 Threat Intelligence]
+        RSS3[🛡️ MS Defender]
+        RSS4[☁️ Azure Security]
+        RSS5[👁️ MS Sentinel]
+    end
+    
+    subgraph "Azure Functions (.NET 8)"
+        F1[SummarizePost API]
+        F2[GenerateEmailHtml API]
+    end
+    
+    subgraph "Azure Services"
+        AOAI[Azure OpenAI GPT-4o]
+        STORAGE[Table Storage]
+        APPINS[Application Insights]
+    end
+    
+    T1 --> LA
+    LA --> RSS1 & RSS2 & RSS3 & RSS4 & RSS5
+    RSS1 & RSS2 & RSS3 & RSS4 & RSS5 --> F1
+    F1 --> AOAI
+    F1 --> STORAGE
+    F1 --> F2
+    F2 --> O365[Office 365 Email]
+    F1 & F2 --> APPINS
+    
+    style T1 fill:#90EE90
+    style AOAI fill:#FFD700
+    style STORAGE fill:#87CEEB
+    style APPINS fill:#FFA07A
 ```
-┌─────────────────┐
-│  Azure Logic    │
-│     Apps        │  ← 스케줄 트리거 (일 3회)
-└────────┬────────┘
-         │
-         ├─→ RSS Feed 수집 (5개 피드)
-         │
-         ├─→ Azure Table Storage (중복 체크)
-         │
-         ├─→ Azure Functions
-         │   ├─ SummarizePost (Azure OpenAI)
-         │   └─ GenerateEmailHtml
-         │
-         └─→ Office 365 (이메일 발송)
+
+**📖 상세 문서**:
+- [아키텍처 상세 설명](docs/ARCHITECTURE.md)
+- [Logic App 워크플로우 가이드](docs/LOGIC_APP_WORKFLOW.md)
+- [배포 가이드](docs/DEPLOYMENT.md)
+
+## 🚀 빠른 시작
+
+### 사전 요구사항
+
+- Azure Subscription
+- Azure OpenAI 리소스 (GPT-4o 배포)
+- Azure CLI
+- .NET 8 SDK
+- Azure Functions Core Tools v4
+
+### 1분 배포 (PowerShell)
+
+```powershell
+# 1. 리포지토리 클론
+git clone https://github.com/zer0big/azure-security-blog-automation.git
+cd azure-security-blog-automation
+
+# 2. 환경 변수 설정
+$env:AZURE_OPENAI_ENDPOINT = "https://your-openai.openai.azure.com/"
+$env:AZURE_OPENAI_KEY = "your-api-key"
+
+# 3. 인프라 배포
+cd infra
+.\deploy.ps1 -AzureOpenAIEndpoint $env:AZURE_OPENAI_ENDPOINT -AzureOpenAIKey $env:AZURE_OPENAI_KEY
+
+# 4. Function App 코드 배포
+cd ../functions
+func azure functionapp publish func-dev-security-blog-automation
 ```
+
+**상세한 배포 가이드**: [DEPLOYMENT.md](docs/DEPLOYMENT.md)
 
 ## 📦 구성 요소
 
+### Infrastructure as Code (IaC)
+
+모든 Azure 리소스는 Bicep으로 정의되어 있으며, 재현 가능한 배포를 보장합니다.
+
+```
+infra/
+├── bicep/
+│   ├── main.bicep                    # 메인 오케스트레이션 템플릿
+│   ├── modules/
+│   │   ├── storage.bicep             # Storage Account + ProcessedPosts 테이블
+│   │   ├── function-app.bicep        # Function App + App Service Plan
+│   │   ├── logic-app.bicep           # Logic App + App Service Plan
+│   │   └── app-insights.bicep        # Application Insights + Log Analytics
+│   └── parameters/
+│       └── dev.bicepparam            # 개발 환경 파라미터
+├── logic-app/
+│   └── workflow-full.json            # Logic App 워크플로우 정의
+├── deploy.ps1                         # PowerShell 배포 스크립트
+└── deploy.sh                          # Bash 배포 스크립트
+```
+
 ### Azure Resources
 
-- **Logic App**: 워크플로우 오케스트레이션
-- **Function App**: .NET 8 Isolated 함수
+- **Logic App (Standard)**: 워크플로우 오케스트레이션
+- **Function App (.NET 8 Isolated)**:
   - `SummarizePost`: Azure OpenAI 기반 게시글 요약
   - `GenerateEmailHtml`: 이메일 HTML 생성
-- **Storage Account**: Table Storage (중복 체크용)
-- **Azure OpenAI**: GPT-4o 모델 (요약 생성)
+- **Azure Table Storage**: 처리된 게시글 중복 방지 (ProcessedPosts 테이블)
+- **Azure OpenAI**: GPT-4o 모델 기반 요약 생성
+- **Application Insights**: 모니터링 및 로깅
+- **Office 365 Connector**: 이메일 발송
 
-### Functions
+### RSS Feed 소스
 
 #### SummarizePost
 ```csharp
