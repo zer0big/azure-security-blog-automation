@@ -21,8 +21,8 @@ Microsoft Security Blog RSS 피드를 읽고, Azure Functions를 호출해 중�
 
 - **Type**: Recurrence (일정)
 - **Frequency**: 매일
-- **Schedule**: 09:00 KST (Korea Standard Time)
-- **Purpose**: 매일 아침 자동 실행
+- **Schedule**: 07:00, 14:00, 21:00 KST (Korea Standard Time)
+- **Purpose**: 하루 3회 자동 실행
 
 #### 2. Actions (액션)
 
@@ -151,7 +151,7 @@ az logic workflow run list \
 ### 3. 테스트 시나리오
 
 - ✅ **정상 실행**: RSS 피드에 새 게시물이 있을 때
-- ✅ **빈 결과**: RSS 피드에 새 게시물이 없을 때 (Terminate)
+- ✅ **빈 결과**: RSS 피드에 새 게시물이 없을 때 — 각 피드별로 "No new posts" 항목을 추가하고 이메일은 "최근 게시글 요약 (신규 없음)" 제목으로 발송합니다 (GenerateEmailHtml은 실제 신규 개수만 헤더에 집계).
 - ✅ **OpenAI 에러**: API 키 오류 또는 Rate Limit → 재시도 3회 → 실패 시 에러 이메일
 - ✅ **이메일 발송 실패**: Office 365 연결 오류 → 에러 이메일
 

@@ -4,6 +4,36 @@
 
 ## [Unreleased]
 
+### Changed - 2025-12-27
+
+#### ✅ 안정성 및 동작 수정
+- **SummarizePost: null/빈 본문 안전 처리**
+  - 빈 또는 null 콘텐츠에 대해 500 에러를 발생시키지 않고 **placeholder 요약**("요약할 내용이 없습니다")를 반환하도록 수정하여 함수의 실패를 방지했습니다.
+  - 영향 파일: `functions/Functions/SummarizePost.cs`
+
+- **GenerateEmailHtml: 실제 신규 개수 집계 개선**
+  - "No new posts in last 24 hours" 플레이스홀더는 헤더 카운트에서 제외되고, 각 피드에 대해 신규 없음은 단일 라인(이모지 포함)으로 렌더링됩니다.
+  - 제목 생성 로직: 실제 신규 개수 N>0 → "[Microsoft Azure 업데이트] 새 게시글 {N}개", 그렇지 않으면 "최근 게시글 요약 (신규 없음)"으로 변경.
+  - 영향 파일: `functions/Functions/GenerateEmailHtml.cs`
+
+#### 🔄 워크플로/배포 변경
+- **기본 RSS 피드 목록을 5개로 확대** (Tech Community - Defender, Sentinel 추가)
+  - 배포 스냅샷: `.backups/backup_2025-12-27_final_5_feeds_with_emoji/deploy_complete_5_feeds.json`
+- **스케줄 업데이트**: 트리거 시간 `07:00, 14:00, 21:00 (KST)`로 변경
+- **동시성/재시도 설정**: `For_Each_RSS_Feed` 반복 동시성(repetitions)=3, `For_Each_RSS_Item` 반복 동시성=5; 주요 HTTP 액션에 retry 정책 및 timeout 적용
+  - 영향 파일: 워크플로 정의 및 배포 JSON
+
+#### 🧾 백업 및 문서화
+- 백업 스냅샷 생성: `.backups/backup_2025-12-27_final_5_feeds_with_emoji` (복원 가이드 포함)
+- 문서 업데이트: `README.md`, `docs/LOGIC-APP-ARCHITECTURE.md`, `docs/AZURE-INFRASTRUCTURE-ARCHITECTURE.md`, `workflows/README.md` (피드 목록/스케줄/동시성/Retry/Timeout/KeyVault 상태 반영)
+
+#### 🧪 검증 및 로그
+- 원격 `GenerateEmailHtml` 호출 테스트 성공(응답: subject + HTML) — 아티팩트: `.artifacts/remote_generate_email_response.json`
+- Logic App 실행/액션 로그 수집: `.artifacts/latest_run_actions_full.json` (일부 run에서 downstream action skipped, 일부 run에서 Office365 send 200 응답 확인)
+
+#### ⚠️ 운영 권고
+- 반복 이메일이 지속될 경우 **Send 액션 비활성화(또는 조건 추가)**로 즉시 전송 중지 권장; 관련 가이드와 복원 절차는 백업 RESTORE_GUIDE.md에 정리됨
+
 ### Added - 2025-12-22
 
 #### 🎨 이메일 UI 개선
@@ -278,7 +308,7 @@ az rest --method get --uri "..." > backup-$(Get-Date -Format 'yyyyMMdd-HHmmss').
 - ✅ 중복 게시물 제거
 - ✅ AI 기반 한글 요약
 - ✅ HTML 이메일 발송
-- ✅ 매일 09:00 KST 자동 실행
+- ✅ 매일 07:00 / 15:00 / 22:00 KST 자동 실행
 
 ---
 

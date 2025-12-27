@@ -248,7 +248,7 @@ Microsoft 보안 블로그(3개 RSS 피드)에서 최신 보안 소식을 자동
 ```
 
 **동작**:
-- 3개 RSS 피드를 **순차적으로** 처리 (concurrency=1)
+- 5개 RSS 피드를 **병렬(동시 3개)**로 처리 (concurrency=3)
 - 각 피드별로 최근 24시간 이내 게시물 조회
 
 **처리 순서**:
@@ -257,8 +257,8 @@ Microsoft 보안 블로그(3개 RSS 피드)에서 최신 보안 소식을 자동
 3. MS Security - Threat Intelligence
 
 **⚠️ 개선 필요**: 
-- 현재 순차 처리로 전체 실행 시간 증가
-- 병렬 처리 가능하나 Azure Functions 과부하 우려
+- 현재 병렬 처리 설정(For_Each_RSS_Feed: concurrency=3, For_Each_RSS_Item: concurrency=5)로 성능 개선됨
+- 병렬 처리로 속도가 향상되나 Azure Functions 부하 및 API rate limit을 모니터링해야 함
 
 ---
 
@@ -632,6 +632,7 @@ POST https://func-dev-security-blog-automation.azurewebsites.net/api/GenerateEma
   - 💡 Key Insights (AI Summary) - 영문
   - 🇰🇷 핵심 인사이트 (한국어 요약)
 - RSS 소스별로 그룹핑하여 표시
+- **빈 결과 처리**: 피드별로 "No new posts in last 24 hours" 플레이스홀더(이모지 포함)를 추가해 표시하며, 제목(subject)은 실제 신규 게시물 수(플레이스홀더 제외)를 집계해 `"[Microsoft Azure 업데이트] 새 게시글 {N}개"` 또는 `"[Microsoft Azure 업데이트] 최근 게시글 요약 (신규 없음)"`로 설정합니다.
 
 **참고 코드**: `functions/Functions/GenerateEmailHtml.cs`
 
@@ -681,6 +682,14 @@ POST https://func-dev-security-blog-automation.azurewebsites.net/api/GenerateEma
   {
     "url": "https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/feed/",
     "sourceName": "MS Security - Threat Intelligence"
+  },
+  {
+    "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog",
+    "sourceName": "TC - Microsoft Defender"
+  },
+  {
+    "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog",
+    "sourceName": "TC - Microsoft Sentinel"
   }
 ]
 ```
@@ -825,6 +834,8 @@ azure-mvp@zerobig.kr 수신
 - Insert_To_Table_Storage
 - Generate_Email_HTML
 
+**상태**: 적용됨 (2025-12-27) — 각 액션에 retry policy가 반영되었습니다
+
 **예상 효과**: 일시적 장애 자동 복구율 90% 이상
 
 **참고**: [Retry Policies](https://learn.microsoft.com/azure/logic-apps/logic-apps-exception-handling#retry-policies)
@@ -856,6 +867,8 @@ azure-mvp@zerobig.kr 수신
 - SummarizePost: PT3M (GPT-4o 응답 시간 고려)
 - InsertProcessed: PT2M
 - GenerateEmailHtml: PT2M
+
+**상태**: 적용됨 (2025-12-27) — 해당 타임아웃이 워크플로우 정의에 설정되어 있습니다
 
 **예상 효과**: 워크플로우 최대 실행 시간 예측 가능
 
@@ -1012,8 +1025,8 @@ azure-mvp@zerobig.kr 수신
 #### 6. [WI 150] 병렬 처리 제한 최적화
 
 **현재 상태**:
-- For_Each_RSS_Feed: concurrency = 1 (순차)
-- For_Each_RSS_Item: concurrency = 1 (순차)
+- For_Each_RSS_Feed: concurrency = 3 (병렬, outer loops)
+- For_Each_RSS_Item: concurrency = 5 (병렬, inner loops)
 - Add_Top5_To_All_Posts: concurrency = 1 (순차)
 
 **개선 방안**:

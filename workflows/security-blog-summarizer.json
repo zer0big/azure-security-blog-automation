@@ -8,6 +8,7 @@
         },
         "openAiEndpoint": {
             "type": "String",
+            "defaultValue": "",
             "metadata": {
                 "description": "Azure OpenAI API Endpoint (예: https://your-openai.openai.azure.com/)"
             }
@@ -59,7 +60,9 @@
                 "interval": 1,
                 "schedule": {
                     "hours": [
-                        "9"
+                        "7",
+                        "15",
+                        "22"
                     ],
                     "minutes": [
                         0
@@ -77,6 +80,11 @@
                 "variables": [
                     {
                         "name": "newPosts",
+                        "type": "Array",
+                        "value": []
+                    },
+                    {
+                        "name": "recentPosts",
                         "type": "Array",
                         "value": []
                     }
@@ -150,6 +158,39 @@
                         ]
                     },
                     "actions": {
+                        "If_Has_RSS_Items_Append_RecentPost": {
+                            "type": "If",
+                            "expression": {
+                                "and": [
+                                    {
+                                        "greater": [
+                                            "@length(body('List_RSS'))",
+                                            0
+                                        ]
+                                    }
+                                ]
+                            },
+                            "runAfter": {},
+                            "actions": {
+                                "Append_RecentPost": {
+                                    "type": "AppendToArrayVariable",
+                                    "inputs": {
+                                        "name": "recentPosts",
+                                        "value": {
+                                            "title": "@{first(body('List_RSS'))?['title']}",
+                                            "link": "@{first(body('List_RSS'))?['primaryLink']}",
+                                            "publishDate": "@{first(body('List_RSS'))?['publishDate']}",
+                                            "summary": "@{first(body('List_RSS'))?['summary']}",
+                                            "sourceName": "SecurityBlog"
+                                        }
+                                    },
+                                    "runAfter": {}
+                                }
+                            },
+                            "else": {
+                                "actions": {}
+                            }
+                        },
                         "For_Each_RSS_Item": {
                             "type": "Foreach",
                             "foreach": "@take(body('List_RSS'), parameters('rssItemLimit'))",
@@ -158,7 +199,11 @@
                                     "repetitions": 1
                                 }
                             },
-                            "runAfter": {},
+                            "runAfter": {
+                                "If_Has_RSS_Items_Append_RecentPost": [
+                                    "Succeeded"
+                                ]
+                            },
                             "actions": {
                                 "Check_Duplicate": {
                                     "type": "Http",
@@ -269,7 +314,8 @@
                                     "x-functions-key": "@parameters('functionKey')"
                                 },
                                 "body": {
-                                    "posts": "@variables('newPosts')"
+                                    "newPosts": "@variables('newPosts')",
+                                    "recentPosts": "@variables('recentPosts')"
                                 }
                             },
                             "runAfter": {

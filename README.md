@@ -17,9 +17,10 @@
 - 🤖 **AI 3줄 요약**: Azure OpenAI GPT-4o로 핵심 내용 한글 3줄 요약
 - 📧 **HTML 이메일**: 카드 레이아웃 스타일의 반응형 이메일 발송 (가시성 최적화)
 - 🏷️ **소스 배지**: 각 게시물의 출처를 시각적으로 표시
-- ⏰ **스케줄링**: 매일 오전 9시(KST) 자동 실행
+- ⏰ **스케줄링**: 매일 07:00, 14:00, 21:00 (KST) 자동 실행
 - 🔍 **스마트 중복 제거**: Azure Table Storage 기반 중복 게시물 필터링
 - 💰 **비용 최적화**: Consumption 요금제로 월 $1~$5 수준
+- 💾 **백업 스냅샷**: `backup_2025-12-27_final_5_feeds_with_emoji` (5개 RSS 피드, 이모지, 복원 가이드 포함) - 자세한 내용은 `.backups/RESTORE_GUIDE.md` 참고
 
 ### 💡 기대 효과
 
@@ -61,7 +62,7 @@
 | **오케스트레이션** | Azure Logic Apps (Consumption) | 워크플로 관리 및 스케줄링 |
 | **AI 요약** | Azure OpenAI GPT-4o | 블로그 3줄 한글 요약 |
 | **이메일 발송** | Office 365 Outlook | 요약 메일 전송 |
-| **RSS 소스** | Microsoft Security Blog | 공식 보안 블로그 RSS |
+| **RSS 소스** | Microsoft Security Blog / Azure Security Blog / MS Security - Threat Intelligence / TC - Microsoft Defender / TC - Microsoft Sentinel | 공식 보안 블로그 RSS (5개 피드) |
 | **필터링** | Logic Apps Query/Compose | 24시간 내 or 최근 5개 |
 
 ## 🚀 빠른 시작
@@ -172,8 +173,8 @@ azure-security-blog-automation/
 
 ### 적용된 보안 원칙
 
-- ✅ **Managed Identity**: API 키 대신 관리 ID 사용
-- ✅ **Key Vault 통합**: 민감 정보 안전한 저장
+- ✅ **Managed Identity**: SystemAssigned 관리 ID 사용 (활성화됨)
+- ⚠️ **Key Vault 통합**: 미적용 — 현재 Function Key가 파라미터로 저장되어 있음; Key Vault로 이관 권장 (WI 147)
 - ✅ **최소 권한 원칙**: 필요한 권한만 부여
 - ✅ **진단 로깅**: 모든 작업 감사 추적
 - ✅ **HTTPS 전용**: 모든 통신 암호화

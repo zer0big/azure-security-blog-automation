@@ -954,6 +954,8 @@ Response Format: JSON
 
 **백업 정책**: 없음 (개발 환경)
 
+**최근 백업(참고)**: `.backups/backup_2025-12-27_final_5_feeds_with_emoji` 생성됨 — 5개 RSS 피드, 이모지, 복원 가이드 포함. 복원 가이드는 `.backups/backup_2025-12-27_final_5_feeds_with_emoji/RESTORE_GUIDE.md`를 참조하세요.
+
 **데이터 지속성**:
 - **Storage Account**: LRS (3 copy, 단일 리전)
 - **Application Insights**: 30일 보존
@@ -1072,16 +1074,16 @@ Response Format: JSON
 - Managed By: Bicep IaC
 - Tagging Strategy: 5 tags
 
-**알려진 제한사항**:
-- Managed Identity 미사용
-- Public Endpoint만 지원
+**알려진 제한사항 (As-Is)**:
+- Managed Identity: SystemAssigned 활성화됨 (Logic App Identity 확인됨)
+- Public Endpoint만 지원 (네트워크 격리 미구성)
 - IP 제한 없음
-- Key Vault 통합 없음
-- DR 정책 없음
+- Key Vault 통합 없음 (Function Key가 여전히 파라미터로 보관됨)
+- DR 정책: 백업/복원 절차는 수동이며 자동화 필요
 
-**개선 예정**:
-- [WI 147] Key Vault 통합
-- [WI TBD] Managed Identity 활성화
+**개선 예정 / 진행중**:
+- [WI 147] Key Vault 통합 (진행 예정) — Function Key를 Key Vault로 이관
+- [WI 148] 에러 핸들링 개선 (부분 적용됨: retry/timeout 추가)
 - [WI TBD] Private Endpoint 구성
 
 ---

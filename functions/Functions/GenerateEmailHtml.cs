@@ -37,26 +37,113 @@ public class GenerateEmailHtml
 
         try
         {
-            var request = await req.ReadFromJsonAsync<GenerateEmailRequest>();
+            // Read and parse the request body flexibly: some callers send `englishSummary`/`koreanSummary`
+            // as JSON-encoded strings ("[\"a\",\"b\"]") while others send real arrays. We accept both.
+            string bodyStr;
+            using (var sr = new StreamReader(req.Body))
+            {
+                bodyStr = await sr.ReadToEndAsync();
+            }
 
-            if (request == null)
+            if (string.IsNullOrWhiteSpace(bodyStr))
             {
                 _logger.LogWarning("Invalid request body");
                 return new BadRequestObjectResult(new { error = "Request body is required" });
             }
 
-            var newPosts = request.NewPosts ?? request.Posts ?? Array.Empty<BlogPost>();
-            var recentPosts = request.RecentPosts ?? Array.Empty<BlogPost>();
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(bodyStr);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to parse request JSON");
+                return new BadRequestObjectResult(new { error = "Invalid JSON" });
+            }
+
+            BlogPost[] newPosts = Array.Empty<BlogPost>();
+            BlogPost[] recentPosts = Array.Empty<BlogPost>();
+
+            BlogPost[] ParsePostsElement(JsonElement el)
+            {
+                if (el.ValueKind != JsonValueKind.Array) return Array.Empty<BlogPost>();
+                var list = new List<BlogPost>();
+                foreach (var item in el.EnumerateArray())
+                {
+                    var bp = new BlogPost();
+                    if (item.TryGetProperty("title", out var t) || item.TryGetProperty("Title", out t)) bp.Title = t.GetString();
+                    if (item.TryGetProperty("link", out var l) || item.TryGetProperty("Link", out l)) bp.Link = l.GetString();
+                    if (item.TryGetProperty("publishDate", out var pd) || item.TryGetProperty("PublishDate", out pd)) bp.PublishDate = pd.GetString();
+                    if (item.TryGetProperty("summary", out var s) || item.TryGetProperty("Summary", out s)) bp.Summary = s.GetString();
+                    if (item.TryGetProperty("sourceName", out var sn) || item.TryGetProperty("SourceName", out sn)) bp.SourceName = sn.GetString();
+
+                    // EnglishSummary: accept array or JSON-encoded string
+                    string[]? ParseStringArray(JsonElement prop)
+                    {
+                        try
+                        {
+                            if (prop.ValueKind == JsonValueKind.Array)
+                            {
+                                var arr = new List<string>();
+                                foreach (var el2 in prop.EnumerateArray()) if (el2.ValueKind == JsonValueKind.String) arr.Add(el2.GetString() ?? string.Empty);
+                                return arr.ToArray();
+                            }
+                            if (prop.ValueKind == JsonValueKind.String)
+                            {
+                                var raw = prop.GetString() ?? string.Empty;
+                                // try parse as JSON array
+                                try
+                                {
+                                    using (var pd2 = JsonDocument.Parse(raw))
+                                    {
+                                        if (pd2.RootElement.ValueKind == JsonValueKind.Array)
+                                        {
+                                            var arr = new List<string>();
+                                            foreach (var el2 in pd2.RootElement.EnumerateArray()) if (el2.ValueKind == JsonValueKind.String) arr.Add(el2.GetString() ?? string.Empty);
+                                            return arr.ToArray();
+                                        }
+                                    }
+                                }
+                                catch { }
+                                // fallback: return single-element array with raw string
+                                return new[] { raw };
+                            }
+                        }
+                        catch { }
+                        return null;
+                    }
+
+                    if (item.TryGetProperty("englishSummary", out var es) || item.TryGetProperty("EnglishSummary", out es)) bp.EnglishSummary = ParseStringArray(es);
+                    if (item.TryGetProperty("koreanSummary", out var ks) || item.TryGetProperty("KoreanSummary", out ks)) bp.KoreanSummary = ParseStringArray(ks);
+
+                    list.Add(bp);
+                }
+                return list.ToArray();
+            }
+
+            var root = doc.RootElement;
+            if (root.TryGetProperty("newPosts", out var np) || root.TryGetProperty("NewPosts", out np) || root.TryGetProperty("posts", out np) || root.TryGetProperty("Posts", out np))
+            {
+                newPosts = ParsePostsElement(np);
+            }
+            if (root.TryGetProperty("recentPosts", out var rp) || root.TryGetProperty("RecentPosts", out rp))
+            {
+                recentPosts = ParsePostsElement(rp);
+            }
 
             var hasNewPosts = newPosts.Length > 0;
             var displayPosts = hasNewPosts
                 ? newPosts
                 : (recentPosts.Length > 0 ? recentPosts : Array.Empty<BlogPost>());
 
-            var html = await GenerateHtmlAsync(displayPosts, hasNewPosts, newPosts.Length, recentPosts.Length);
+            // Count actual new posts (excluding "No new posts" messages)
+            var actualNewPostsCount = displayPosts.Count(p => p.Title != "No new posts in last 24 hours");
 
-            var subject = hasNewPosts
-                ? $"[Microsoft Azure 업데이트] 새 게시글 {newPosts.Length}개"
+            var html = await GenerateHtmlAsync(displayPosts, hasNewPosts, actualNewPostsCount, recentPosts.Length);
+
+            var subject = actualNewPostsCount > 0
+                ? $"[Microsoft Azure 업데이트] 새 게시글 {actualNewPostsCount}개"
                 : "[Microsoft Azure 업데이트] 최근 게시글 요약 (신규 없음)";
             
             return new OkObjectResult(new { html, subject });
@@ -101,24 +188,9 @@ public class GenerateEmailHtml
         sb.AppendLine("<div class=\"header\">");
         sb.AppendLine("<h1>☁️ Microsoft Azure 업데이트</h1>");
         
-        if (hasNewPosts)
-        {
-            sb.AppendLine($"<div class=\"count\">새로운 게시글 {newPostsCount}개</div>");
-        }
-        else
-        {
-            sb.AppendLine($"<div class=\"count\">최근 게시글 요약 (신규 없음)</div>");
-        }
+        sb.AppendLine($"<div class=\"count\">새로운 게시글 {newPostsCount}개</div>");
         
         sb.AppendLine("</div>");
-        
-        if (!hasNewPosts)
-        {
-            sb.AppendLine("<div class=\"no-new-notice\">");
-            sb.AppendLine("ℹ️ <strong>신규 게시글이 없습니다.</strong><br>");
-            sb.AppendLine("아래는 각 피드의 최신 1개 게시글입니다.");
-            sb.AppendLine("</div>");
-        }
         
         sb.AppendLine("<div class=\"content\">");
 
@@ -132,6 +204,18 @@ public class GenerateEmailHtml
 
         foreach (var post in posts)
         {
+            // Check if this is a "No new posts" message
+            if (post.Title == "No new posts in last 24 hours")
+            {
+                // Get emoji based on source name
+                var emoji = SourceEmojiHelper.GetSourceEmoji(post.SourceName ?? "");
+                var sourceName = !string.IsNullOrEmpty(post.SourceName) 
+                    ? System.Net.WebUtility.HtmlEncode(post.SourceName) 
+                    : "Unknown Source";
+                sb.AppendLine($"<div style=\"padding: 10px 20px; margin: 10px 0; color: #666; font-size: 14px; border-left: 3px solid #ddd;\">{emoji} {sourceName}: No new posts in last 24 hours</div>");
+                continue;
+            }
+            
             sb.AppendLine("<div class=\"post\">");
             
             // Show source name if available
@@ -1079,4 +1163,20 @@ public class BlogPost
     public string? SourceName { get; set; }
     public string[]? EnglishSummary { get; set; }
     public string[]? KoreanSummary { get; set; }
+}
+
+public static class SourceEmojiHelper
+{
+    public static string GetSourceEmoji(string sourceName)
+    {
+        return sourceName switch
+        {
+            "Microsoft Security Blog" => "🔒",
+            "Azure Security Blog" => "☁️",
+            "MS Security - Threat Intelligence" => "🔍",
+            "TC - Microsoft Defender" => "🛡️",
+            "TC - Microsoft Sentinel" => "👁️",
+            _ => "📰"
+        };
+    }
 }
