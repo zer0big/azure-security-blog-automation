@@ -1,0 +1,32 @@
+﻿# Build outputs
+bin/
+obj/
+publish/
+*.dll
+*.exe
+*.pdb
+
+# Package files
+*.zip
+*.nupkg
+
+# User-specific files
+*.user
+*.suo
+.vs/
+
+# Azure Functions
+local.settings.json
+*.azurefunctions/
+functions.metadata
+
+# Artifacts and backups
+.artifacts/
+.backups/
+
+# Scripts output
+.scripts/output/
+
+# Temporary files
+*.tmp
+*.temp
