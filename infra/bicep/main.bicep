@@ -16,6 +16,9 @@ param functionAppName string
 @description('Logic App name')
 param logicAppName string
 
+@description('Logic App name for Azure/Cloud blogs')
+param logicAppAzureCloudName string
+
 @description('Application Insights name')
 param appInsightsName string
 
@@ -98,6 +101,23 @@ module logicApp './modules/logic-app.bicep' = {
   ]
 }
 
+// Logic App #2 Module - Azure/Cloud
+module logicAppAzureCloud './modules/logic-app-azure-cloud.bicep' = {
+  name: 'logicAppAzureCloud-deployment'
+  params: {
+    logicAppName: logicAppAzureCloudName
+    storageAccountName: storageAccountName
+    location: location
+    appInsightsConnectionString: appInsights.outputs.appInsightsConnectionString
+    storageConnectionString: storage.outputs.primaryConnectionString
+    tags: tags
+  }
+  dependsOn: [
+    storage
+    appInsights
+  ]
+}
+
 // Outputs
 output resourceGroupName string = resourceGroup().name
 output storageAccountName string = storage.outputs.storageAccountName
@@ -105,5 +125,7 @@ output functionAppName string = functionApp.outputs.functionAppName
 output functionAppHostName string = functionApp.outputs.functionAppHostName
 output logicAppName string = logicApp.outputs.logicAppName
 output logicAppHostName string = logicApp.outputs.logicAppHostName
+output logicAppAzureCloudName string = logicAppAzureCloud.outputs.logicAppName
+output logicAppAzureCloudHostName string = logicAppAzureCloud.outputs.logicAppDefaultHostName
 output appInsightsName string = appInsights.outputs.appInsightsName
 output appInsightsConnectionString string = appInsights.outputs.appInsightsConnectionString

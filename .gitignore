@@ -30,3 +30,25 @@ functions.metadata
 # Temporary files
 *.tmp
 *.temp
+temp-*.json
+current-*.json
+logic-app-*.json
+workflow-*-fixed.json
+full-params-*.json
+params-*.json
+*-updated.json
+
+# Deployment scripts (temporary)
+deploy-logic-app-2*.py
+deploy-workflow-*.py
+fix-emoji-direct.py
+fix-logic-app-*.py
+fix-params-direct.py
+fix-runtime-parameters.py
+update-12-feeds.py
+update-logic-app-*.py
+update-schedule-text.py
+deploy-*.ps1
+analyze-*.py
+check-*.py
+find-*.py

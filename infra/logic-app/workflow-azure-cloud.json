@@ -1,4 +1,4 @@
-﻿{
+{
   "accessEndpoint": "https://prod-31.koreacentral.logic.azure.com:443/workflows/5fba9db657bf4a63b2f4c79ef1175b00",
   "changedTime": "2025-12-27T11:32:18.2771321Z",
   "createdTime": "2025-12-20T12:57:23.9813335Z",
@@ -420,24 +420,32 @@
       "rssFeedUrls": {
         "defaultValue": [
           {
-            "sourceName": "🛡️ Microsoft Security Blog",
-            "url": "https://www.microsoft.com/en-us/security/blog/feed/"
+            "sourceName": "☁️ Azure Blog",
+            "url": "https://azure.microsoft.com/en-us/blog/feed/"
           },
           {
-            "sourceName": "🔒 Microsoft Defender Blog",
-            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog"
+            "sourceName": "🤖 Azure AI Blog",
+            "url": "https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureAIBlog"
           },
           {
-            "sourceName": "🔐 Microsoft Sentinel Blog",
-            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog"
+            "sourceName": "🧠 M365 Copilot Blog",
+            "url": "https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Microsoft365CopilotBlog"
           },
           {
-            "sourceName": "🌐 Zero Trust Blog",
-            "url": "https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/"
+            "sourceName": "⚙️ Azure DevOps Blog",
+            "url": "https://devblogs.microsoft.com/devops/feed/"
           },
           {
-            "sourceName": "🔑 Identity & Access Blog",
-            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity"
+            "sourceName": "📊 Fabric Blog",
+            "url": "https://blog.fabric.microsoft.com/en-us/blog/feed/"
+          },
+          {
+            "sourceName": "📢 Azure Updates",
+            "url": "https://azure.microsoft.com/en-us/updates/feed/"
+          },
+          {
+            "sourceName": "🏛️ Architecture Center",
+            "url": "https://docs.microsoft.com/en-us/azure/architecture/feed.atom"
           }
         ],
         "type": "Array"
@@ -450,9 +458,7 @@
           "interval": 1,
           "schedule": {
             "hours": [
-              7,
-              15,
-              22
+              9
             ],
             "minutes": [
               0
@@ -465,9 +471,7 @@
           "interval": 1,
           "schedule": {
             "hours": [
-              7,
-              15,
-              22
+              9
             ],
             "minutes": [
               0
@@ -602,24 +606,32 @@
     "rssFeedUrls": {
       "value": [
         {
-          "sourceName": "🛡️ Microsoft Security Blog",
-          "url": "https://www.microsoft.com/en-us/security/blog/feed/"
+          "sourceName": "☁️ Azure Blog",
+          "url": "https://azure.microsoft.com/en-us/blog/feed/"
         },
         {
-          "sourceName": "🔒 Microsoft Defender Blog",
-          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog"
+          "sourceName": "🤖 Azure AI Blog",
+          "url": "https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureAIBlog"
         },
         {
-          "sourceName": "🔐 Microsoft Sentinel Blog",
-          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog"
+          "sourceName": "🧠 M365 Copilot Blog",
+          "url": "https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Microsoft365CopilotBlog"
         },
         {
-          "sourceName": "🌐 Zero Trust Blog",
-          "url": "https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/"
+          "sourceName": "⚙️ Azure DevOps Blog",
+          "url": "https://devblogs.microsoft.com/devops/feed/"
         },
         {
-          "sourceName": "🔑 Identity & Access Blog",
-          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity"
+          "sourceName": "📊 Fabric Blog",
+          "url": "https://blog.fabric.microsoft.com/en-us/blog/feed/"
+        },
+        {
+          "sourceName": "📢 Azure Updates",
+          "url": "https://azure.microsoft.com/en-us/updates/feed/"
+        },
+        {
+          "sourceName": "🏛️ Architecture Center",
+          "url": "https://docs.microsoft.com/en-us/azure/architecture/feed.atom"
         }
       ]
     }

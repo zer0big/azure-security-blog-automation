@@ -18,22 +18,35 @@ Microsoft 보안 관련 블로그의 최신 게시글을 자동으로 수집하�
 
 ## 🎯 주요 기능
 
-- **5개 Microsoft 보안 RSS 피드 모니터링**
-  - 🔒 Microsoft Security Blog
-  - 🔍 MS Security - Threat Intelligence
-  - 🛡️ Microsoft Defender (Tech Community)
-  - ☁️ Azure Security Blog
-  - 👁️ Microsoft Sentinel (Tech Community)
+### 📰 **두 개의 자동화 워크플로우**
 
-- **AI 기반 자동 요약** (Azure OpenAI GPT-4o)
+#### **워크플로우 #1: Security Blog (5개 피드)**
+- 🛡️ Microsoft Security Blog
+- 🔐 Microsoft Sentinel Blog  
+- 🌐 Zero Trust Blog
+- 🎯 Threat Intelligence
+- 💡 Cybersecurity Insights
+- ⏰ 스케줄: 매일 07:00, 15:00, 22:00 (KST)
+
+#### **워크플로우 #2: Azure/Cloud Blog (6개 피드)**
+- 🔧 Azure DevOps Blog
+- 📊 Azure Architecture Blog
+- 🏗️ Azure Infrastructure Blog
+- 🏢 Azure Governance and Management Blog
+- 🔨 Azure DevOps Community
+- ⚡ Azure Integration Services Blog
+- ⏰ 스케줄: 매일 08:00, 16:00, 23:00 (KST)
+
+### 🤖 **AI 기반 자동 요약** (Azure OpenAI GPT-4o)
   - 영문 핵심 인사이트 추출
   - 한국어 자동 번역 및 요약
   - 보안 이슈 핵심 포인트 강조
+  - 이모지로 피드 출처 시각화
 
-- **스마트 이메일 발송**
+### 📧 **스마트 이메일 발송**
   - 신규 게시글 자동 감지
   - 중복 제거 (Azure Table Storage)
-  - 일 3회 자동 발송 (07:00, 15:00, 22:00 KST)
+  - 일 6회 자동 발송 (총 2개 워크플로우)
   - 게시글 없을 시 간결한 요약 형식
 
 ## 🏗️ 아키텍처
@@ -125,16 +138,18 @@ func azure functionapp publish func-dev-security-blog-automation
 ```
 infra/
 ├── bicep/
-│   ├── main.bicep                    # 메인 오케스트레이션 템플릿
+│   ├── main.bicep                         # 메인 오케스트레이션 템플릿
 │   ├── modules/
-│   │   ├── storage.bicep             # Storage Account + ProcessedPosts 테이블
-│   │   ├── function-app.bicep        # Function App + App Service Plan
-│   │   ├── logic-app.bicep           # Logic App + App Service Plan
-│   │   └── app-insights.bicep        # Application Insights + Log Analytics
+│   │   ├── storage.bicep                  # Storage Account + ProcessedPosts 테이블
+│   │   ├── function-app.bicep             # Function App + App Service Plan
+│   │   ├── logic-app.bicep                # Security Logic App
+│   │   ├── logic-app-azure-cloud.bicep    # Azure/Cloud Logic App
+│   │   └── app-insights.bicep             # Application Insights + Log Analytics
 │   └── parameters/
-│       └── dev.bicepparam            # 개발 환경 파라미터
+│       └── dev.bicepparam                 # 개발 환경 파라미터
 ├── logic-app/
-│   └── workflow-full.json            # Logic App 워크플로우 정의
+│   ├── workflow-full.json                 # Security 워크플로우 정의
+│   └── workflow-azure-cloud.json          # Azure/Cloud 워크플로우 정의
 ├── deploy.ps1                         # PowerShell 배포 스크립트
 └── deploy.sh                          # Bash 배포 스크립트
 ```

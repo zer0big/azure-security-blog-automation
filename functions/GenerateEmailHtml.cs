@@ -77,6 +77,7 @@ public class GenerateEmailHtml
                     if (item.TryGetProperty("publishDate", out var pd) || item.TryGetProperty("PublishDate", out pd)) bp.PublishDate = pd.GetString();
                     if (item.TryGetProperty("summary", out var s) || item.TryGetProperty("Summary", out s)) bp.Summary = s.GetString();
                     if (item.TryGetProperty("sourceName", out var sn) || item.TryGetProperty("SourceName", out sn)) bp.SourceName = sn.GetString();
+                    if (item.TryGetProperty("emoji", out var em) || item.TryGetProperty("Emoji", out em)) bp.Emoji = em.GetString();
 
                     // EnglishSummary: accept array or JSON-encoded string
                     string[]? ParseStringArray(JsonElement prop)
@@ -132,6 +133,17 @@ public class GenerateEmailHtml
                 recentPosts = ParsePostsElement(rp);
             }
 
+            // Extract schedule information (optional parameter from Logic App)
+            string scheduleText = "매일 07:00, 15:00, 22:00 (KST)에 새로운 게시글을 확인합니다."; // default
+            if (root.TryGetProperty("scheduleText", out var st) || root.TryGetProperty("ScheduleText", out st))
+            {
+                var val = st.GetString();
+                if (!string.IsNullOrWhiteSpace(val))
+                {
+                    scheduleText = val;
+                }
+            }
+
             var hasNewPosts = newPosts.Length > 0;
             var displayPosts = hasNewPosts
                 ? newPosts
@@ -140,7 +152,7 @@ public class GenerateEmailHtml
             // Count actual new posts (excluding "No new posts" messages)
             var actualNewPostsCount = displayPosts.Count(p => p.Title != "No new posts in last 24 hours");
 
-            var html = await GenerateHtmlAsync(displayPosts, hasNewPosts, actualNewPostsCount, recentPosts.Length);
+            var html = await GenerateHtmlAsync(displayPosts, hasNewPosts, actualNewPostsCount, recentPosts.Length, scheduleText);
 
             var subject = actualNewPostsCount > 0
                 ? $"[Microsoft Azure 업데이트] 새 게시글 {actualNewPostsCount}개"
@@ -158,7 +170,7 @@ public class GenerateEmailHtml
         }
     }
 
-    private async Task<string> GenerateHtmlAsync(BlogPost[] posts, bool hasNewPosts, int newPostsCount, int recentPostsCount)
+    private async Task<string> GenerateHtmlAsync(BlogPost[] posts, bool hasNewPosts, int newPostsCount, int recentPostsCount, string scheduleText)
     {
         var sb = new StringBuilder();
 
@@ -208,7 +220,7 @@ public class GenerateEmailHtml
             if (post.Title == "No new posts in last 24 hours")
             {
                 // Get emoji based on source name
-                var emoji = SourceEmojiHelper.GetSourceEmoji(post.SourceName ?? "");
+                var emoji = !string.IsNullOrEmpty(post.Emoji) ? post.Emoji : SourceEmojiHelper.GetSourceEmoji(post.SourceName ?? "");
                 var sourceName = !string.IsNullOrEmpty(post.SourceName) 
                     ? System.Net.WebUtility.HtmlEncode(post.SourceName) 
                     : "Unknown Source";
@@ -409,7 +421,7 @@ public class GenerateEmailHtml
         sb.AppendLine("</div>");
         sb.AppendLine("<div class=\"footer\">");
         sb.AppendLine("<p>이 메일은 Azure Security Blog Automation에 의해 자동으로 발송되었습니다.</p>");
-        sb.AppendLine("<p>매일 07:00, 15:00, 22:00 (KST)에 새로운 게시글을 확인합니다.</p>");
+        sb.AppendLine($"<p>{System.Net.WebUtility.HtmlEncode(scheduleText)}</p>");
         sb.AppendLine("</div>");
         sb.AppendLine("</div>");
         sb.AppendLine("</body>");
@@ -1161,6 +1173,7 @@ public class BlogPost
     public string? PublishDate { get; set; }
     public string? Summary { get; set; }
     public string? SourceName { get; set; }
+    public string? Emoji { get; set; }
     public string[]? EnglishSummary { get; set; }
     public string[]? KoreanSummary { get; set; }
 }
@@ -1171,8 +1184,24 @@ public static class SourceEmojiHelper
     {
         return sourceName switch
         {
-            "Microsoft Security Blog" => "🔒",
-            "Azure Security Blog" => "☁️",
+            // Logic App #1 - Security (5 feeds)
+            "Microsoft Security Blog" => "🛡️",
+            "Microsoft Sentinel Blog" => "🔐",
+            "Zero Trust Blog" => "🌐",
+            "Threat Intelligence" => "🎯",
+            "Cybersecurity Insights" => "💡",
+            
+            // Logic App #2 - Azure/Cloud (7 feeds)
+            "Azure Blog" => "☁️",
+            "Azure DevOps Blog" => "🔧",
+            "Fabric Blog" => "📊",
+            "Architecture Center" => "🏗️",
+            "Azure Infrastructure" => "🏢",
+            "Microsoft 365 Dev" => "🔨",
+            "Power Platform" => "⚡",
+            
+            // Legacy/fallback
+            "Azure Security Blog" => "🔒",
             "MS Security - Threat Intelligence" => "🔍",
             "TC - Microsoft Defender" => "🛡️",
             "TC - Microsoft Sentinel" => "👁️",
