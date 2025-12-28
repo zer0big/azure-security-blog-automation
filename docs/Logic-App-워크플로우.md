@@ -2,49 +2,68 @@
 
 ## 개요
 
-이 문서는 **Azure Security Blog Automation** 솔루션의 핵심인 Logic App (Standard) 워크플로우에 대한 상세 분석을 제공합니다. 워크플로우는 Microsoft 보안 블로그에서 RSS 피드를 가져와 새로운 게시글을 감지하고, AI로 요약을 생성하며, 형식이 지정된 이메일 알림을 발송합니다.
+이 문서는 **Azure Security Blog Automation** 솔루션의 핵심인 **듀얼 Logic App (Standard) 워크플로우**에 대한 상세 분석을 제공합니다. 
+
+### 듀얼 워크플로우 아키텍처
+
+시스템은 **2개의 독립적인 Logic App 워크플로우**로 구성되어 있습니다:
+
+1. **Security Workflow** (5개 피드)
+   - Microsoft Security Blog 🛡️
+   - Microsoft Sentinel Blog 🔐
+   - Zero Trust Blog 🌐
+   - Threat Intelligence 🎯
+   - Cybersecurity Insights 💡
+   - 스케줄: 07:00, 15:00, 22:00 KST
+
+2. **Azure/Cloud Workflow** (6개 피드)
+   - Azure DevOps Blog 🔧
+   - Azure Architecture Blog 📊
+   - Azure Infrastructure Blog 🏗️
+   - Azure Governance and Management Blog 🏢
+   - Azure DevOps Community 🔨
+   - Azure Integration Services Blog ⚡
+   - 스케줄: 08:00, 16:00, 23:00 KST
+
+각 워크플로우는 RSS 피드를 가져와 새로운 게시글을 감지하고, AI로 요약을 생성하며, 형식이 지정된 이메일 알림을 발송합니다.
 
 ## 워크플로우 실행 흐름
 
 ```mermaid
 graph TB
-    A[Recurrence Trigger<br/>매일 07:00, 15:00, 22:00] --> B[Initialize CurrentDateTime]
+    A[Recurrence Trigger<br/>Security: 07:00, 15:00, 22:00<br/>Azure: 08:00, 16:00, 23:00] --> B[Initialize CurrentDateTime]
     B --> C[Initialize AllPosts Array]
-    C --> D1[RSS Feed 1:<br/>Microsoft Security Blog]
-    C --> D2[RSS Feed 2:<br/>Microsoft Defender]
-    C --> D3[RSS Feed 3:<br/>Microsoft Entra]
-    C --> D4[RSS Feed 4:<br/>Microsoft Purview]
-    C --> D5[RSS Feed 5:<br/>Microsoft Priva]
+    C --> D[For Each RSS Feed in rssFeedUrls]
     
-    D1 --> E1[Parse Feed 1]
-    D2 --> E2[Parse Feed 2]
-    D3 --> E3[Parse Feed 3]
-    D4 --> E4[Parse Feed 4]
-    D5 --> E5[Parse Feed 5]
+    D --> E[Get RSS Feed Items]
+    E --> F[Parse RSS Feed]
+    F --> G[For Each Item in Feed]
     
-    E1 --> F1[Process Each Item - Feed 1]
-    E2 --> F2[Process Each Item - Feed 2]
-    E3 --> F3[Process Each Item - Feed 3]
-    E4 --> F4[Process Each Item - Feed 4]
-    E5 --> F5[Process Each Item - Feed 5]
+    G --> H{Already<br/>Processed?}
+    H -->|No| I[SummarizePost API]
+    H -->|Yes| J[Skip Item]
     
-    F1 --> G[Combine All Results]
-    F2 --> G
-    F3 --> G
-    F4 --> G
-    F5 --> G
+    I --> K[Save to Table Storage]
+    K --> L[Add to AllPosts Array]
+    J --> L
     
-    G --> H{New Posts<br/>Detected?}
-    H -->|Yes| I[Generate Email HTML]
-    H -->|No| J[Generate 'No New Posts' Email]
+    L --> M{More<br/>Items?}
+    M -->|Yes| G
+    M -->|No| N{More<br/>Feeds?}
     
-    I --> K[Send Email]
-    J --> K
-    K --> L[End]
+    N -->|Yes| D
+    N -->|No| O{New Posts<br/>Detected?}
+    
+    O -->|Yes| P[GenerateEmailHtml API]
+    O -->|No| Q[Generate 'No New Posts' Email]
+    
+    P --> R[Send Email via Office 365]
+    Q --> R
+    R --> S[End]
     
     style A fill:#e1f5ff
-    style H fill:#fff4e1
-    style K fill:#e7f5e1
+    style O fill:#fff4e1
+    style R fill:#e7f5e1
 ```
 
 ## 주요 단계 상세 설명
@@ -54,13 +73,21 @@ graph TB
 **목적**: 특정 시간에 워크플로우를 자동으로 실행합니다.
 
 **구성**:
+
+#### Security Workflow
 - **빈도**: Hour (매시간)
 - **간격**: 1
 - **시간대**: (UTC+09:00) Seoul
 - **이 시간에**: 7, 15, 22 (07:00, 15:00, 22:00에만 실행)
 
+#### Azure/Cloud Workflow
+- **빈도**: Hour (매시간)
+- **간격**: 1
+- **시간대**: (UTC+09:00) Seoul
+- **이 시간에**: 8, 16, 23 (08:00, 16:00, 23:00에만 실행)
+
 **동작**:
-- Logic App은 매일 3번 (07:00, 15:00, 22:00 KST) 실행됩니다.
+- 각 Logic App은 매일 3번 실행됩니다 (총 6회 이메일 발송).
 - 각 실행은 독립적이며 이전 실행의 상태에 영향을 받지 않습니다.
 
 **커스터마이징**:
@@ -108,7 +135,8 @@ graph TB
 **구조**: 각 항목은 다음을 포함합니다:
 ```json
 {
-  "feedName": "🛡️ Microsoft Security Blog",
+  "feedName": "Microsoft Security Blog",
+  "emoji": "🛡️",
   "title": "Announcing new AI-powered security capabilities",
   "link": "https://www.microsoft.com/security/blog/...",
   "publishDate": "2024-01-15T10:30:00Z",
@@ -121,53 +149,55 @@ graph TB
 
 ### 3. RSS 피드 가져오기
 
-워크플로우는 **10개의 RSS 피드**를 동적으로 처리합니다 (Phase 2):
+워크플로우는 **rssFeedUrls 파라미터**를 통해 RSS 피드를 동적으로 처리합니다:
 
-#### 🔒 Security 피드 (5개)
+#### Security Workflow (5개 피드)
 
 ##### 피드 1: 🛡️ Microsoft Security Blog
 - **URL**: `https://www.microsoft.com/en-us/security/blog/feed/`
 - **내용**: 일반 보안 공지, 위협 인텔리전스, 모범 사례
 
-##### 피드 2: 🔒 Microsoft Defender
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftDefenderBlog`
-- **내용**: Microsoft Defender 제품 (Endpoint, Cloud Apps, Identity, Vulnerability Management)
+##### 피드 2: 🔐 Microsoft Sentinel Blog
+- **URL**: `https://www.microsoft.com/en-us/security/blog/topic/microsoft-sentinel/feed/`
+- **내용**: Sentinel SIEM, 헌팅 쿼리, 커넥터
 
-##### 피드 3: 🔍 MS Security - Threat Intelligence
+##### 피드 3: 🌐 Zero Trust Blog
+- **URL**: `https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/`
+- **내용**: Zero Trust 아키텍처, ID 보안, 조건부 액세스
+
+##### 피드 4: 🎯 Threat Intelligence
 - **URL**: `https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/feed/`
 - **내용**: 위협 분석, APT 그룹, 익스플로잇
 
-##### 피드 4: ☁️ Azure Security Blog
-- **URL**: `https://azure.microsoft.com/en-us/blog/topics/security/feed/`
-- **내용**: Azure 특화 보안, Defender for Cloud
+##### 피드 5: 💡 Cybersecurity Insights
+- **URL**: `https://www.microsoft.com/en-us/security/blog/topic/cybersecurity/feed/`
+- **내용**: 사이버 보안 트렌드, 위협 환경, 방어 전략
 
-##### 피드 5: 👁️ Microsoft Sentinel
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftSentinelBlog`
-- **내용**: Sentinel SIEM, 헌팅 쿼리, 커넥터
+#### Azure/Cloud Workflow (6개 피드)
 
-#### 🤖 AI Agent 시대 필수 피드 (2개)
-
-##### 피드 6: 🤖 Azure AI Blog
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureAIBlog`
-- **내용**: Azure AI 서비스, GPT-4, Copilot Studio, AI Agent 개발
-
-##### 피드 7: 🧠 Microsoft 365 Copilot Blog
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Microsoft365CopilotBlog`
-- **내용**: M365 Copilot, Agent Builder, 확장성, 엔터프라이즈 배포
-
-#### ☁️ Azure 핵심 피드 (3개 - Phase 2 신규)
-
-##### 피드 8: ☁️ Azure Blog
-- **URL**: `https://azure.microsoft.com/en-us/blog/feed/`
-- **내용**: Azure 전반 업데이트, 신규 서비스, 프리뷰 기능
-
-##### 피드 9: ⚙️ Azure DevOps Blog
+##### 피드 6: 🔧 Azure DevOps Blog
 - **URL**: `https://devblogs.microsoft.com/devops/feed/`
 - **내용**: Azure DevOps, CI/CD, GitHub Actions, 파이프라인
 
-##### 피드 10: 🔷 Microsoft Fabric Blog
-- **URL**: `https://blog.fabric.microsoft.com/en-us/blog/feed/`
-- **내용**: Microsoft Fabric, 데이터 통합, Analytics, OneLake
+##### 피드 7: 📊 Azure Architecture Blog
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureArchitectureBlog`
+- **내용**: Azure 아키텍처 패턴, Well-Architected Framework
+
+##### 피드 8: 🏗️ Azure Infrastructure Blog
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureInfrastructureBlog`
+- **내용**: 네트워킹, 컴퓨팅, 스토리지 인프라
+
+##### 피드 9: 🏢 Azure Governance and Management Blog
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureGovernanceandManagementBlog`
+- **내용**: 거버넌스, Policy, Cost Management
+
+##### 피드 10: 🔨 Azure DevOps Community
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureDevOpsBlog`
+- **내용**: 커뮤니티 베스트 프랙티스, 사용 사례
+
+##### 피드 11: ⚡ Azure Integration Services Blog
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=IntegrationsonAzureBlog`
+- **내용**: Logic Apps, API Management, Event Grid
 
 > **참고**: 피드는 `rssFeedUrls` 파라미터 배열에서 동적으로 읽어옵니다. For Each 루프가 모든 피드를 자동으로 순회합니다.
 
