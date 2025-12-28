@@ -446,18 +446,6 @@
           {
             "sourceName": "🧠 Microsoft 365 Copilot",
             "url": "https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Microsoft365CopilotBlog"
-          },
-          {
-            "sourceName": "☁️ Azure Blog",
-            "url": "https://azure.microsoft.com/en-us/blog/feed/"
-          },
-          {
-            "sourceName": "⚙️ Azure DevOps Blog",
-            "url": "https://devblogs.microsoft.com/devops/feed/"
-          },
-          {
-            "sourceName": "🔷 Microsoft Fabric Blog",
-            "url": "https://blog.fabric.microsoft.com/en-us/blog/feed/"
           }
         ],
         "type": "Array"
@@ -640,26 +628,6 @@
         {
           "sourceName": "TC - Microsoft Sentinel",
           "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog"
-        },
-        {
-          "sourceName": "🤖 Azure AI",
-          "url": "https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureAIBlog"
-        },
-        {
-          "sourceName": "🧠 Microsoft 365 Copilot",
-          "url": "https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Microsoft365CopilotBlog"
-        },
-        {
-          "sourceName": "☁️ Azure Blog",
-          "url": "https://azure.microsoft.com/en-us/blog/feed/"
-        },
-        {
-          "sourceName": "⚙️ Azure DevOps Blog",
-          "url": "https://devblogs.microsoft.com/devops/feed/"
-        },
-        {
-          "sourceName": "🔷 Microsoft Fabric Blog",
-          "url": "https://blog.fabric.microsoft.com/en-us/blog/feed/"
         }
       ]
     }
