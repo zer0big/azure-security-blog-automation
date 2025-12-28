@@ -121,7 +121,7 @@ graph TB
 
 ### 3. RSS 피드 가져오기
 
-워크플로우는 **7개의 RSS 피드**를 동적으로 처리합니다 (Phase 1):
+워크플로우는 **10개의 RSS 피드**를 동적으로 처리합니다 (Phase 2):
 
 #### 🔒 Security 피드 (5개)
 
@@ -145,7 +145,7 @@ graph TB
 - **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftSentinelBlog`
 - **내용**: Sentinel SIEM, 헌팅 쿼리, 커넥터
 
-#### 🤖 AI Agent 시대 필수 피드 (2개 - Phase 1 신규)
+#### 🤖 AI Agent 시대 필수 피드 (2개)
 
 ##### 피드 6: 🤖 Azure AI Blog
 - **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureAIBlog`
@@ -154,6 +154,20 @@ graph TB
 ##### 피드 7: 🧠 Microsoft 365 Copilot Blog
 - **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Microsoft365CopilotBlog`
 - **내용**: M365 Copilot, Agent Builder, 확장성, 엔터프라이즈 배포
+
+#### ☁️ Azure 핵심 피드 (3개 - Phase 2 신규)
+
+##### 피드 8: ☁️ Azure Blog
+- **URL**: `https://azure.microsoft.com/en-us/blog/feed/`
+- **내용**: Azure 전반 업데이트, 신규 서비스, 프리뷰 기능
+
+##### 피드 9: ⚙️ Azure DevOps Blog
+- **URL**: `https://devblogs.microsoft.com/devops/feed/`
+- **내용**: Azure DevOps, CI/CD, GitHub Actions, 파이프라인
+
+##### 피드 10: 🔷 Microsoft Fabric Blog
+- **URL**: `https://blog.fabric.microsoft.com/en-us/blog/feed/`
+- **내용**: Microsoft Fabric, 데이터 통합, Analytics, OneLake
 
 > **참고**: 피드는 `rssFeedUrls` 파라미터 배열에서 동적으로 읽어옵니다. For Each 루프가 모든 피드를 자동으로 순회합니다.
 
