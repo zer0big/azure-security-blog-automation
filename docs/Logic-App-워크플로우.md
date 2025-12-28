@@ -121,30 +121,44 @@ graph TB
 
 ### 3. RSS 피드 가져오기
 
-워크플로우는 5개의 RSS 피드를 병렬로 가져옵니다:
+워크플로우는 **7개의 RSS 피드**를 동적으로 처리합니다 (Phase 1):
 
-#### 피드 1: 🛡️ Microsoft Security Blog
+#### 🔒 Security 피드 (5개)
+
+##### 피드 1: 🛡️ Microsoft Security Blog
 - **URL**: `https://www.microsoft.com/en-us/security/blog/feed/`
 - **내용**: 일반 보안 공지, 위협 인텔리전스, 모범 사례
 
-#### 피드 2: 🔒 Microsoft Defender
+##### 피드 2: 🔒 Microsoft Defender
 - **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftDefenderBlog`
 - **내용**: Microsoft Defender 제품 (Endpoint, Cloud Apps, Identity, Vulnerability Management)
 
-#### 피드 3: 🔑 Microsoft Entra (Azure AD)
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Identity`
-- **내용**: Azure AD / Microsoft Entra, IAM, 조건부 액세스
+##### 피드 3: 🔍 MS Security - Threat Intelligence
+- **URL**: `https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/feed/`
+- **내용**: 위협 분석, APT 그룹, 익스플로잇
 
-#### 피드 4: 🗂️ Microsoft Purview
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftPurviewBlog`
-- **내용**: 데이터 거버넌스, 컴플라이언스, DLP
+##### 피드 4: ☁️ Azure Security Blog
+- **URL**: `https://azure.microsoft.com/en-us/blog/topics/security/feed/`
+- **내용**: Azure 특화 보안, Defender for Cloud
 
-#### 피드 5: 🔐 Microsoft Priva
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftPrivaBlog`
-- **내용**: 개인정보 보호 관리, GDPR, 데이터 주체 권리
+##### 피드 5: 👁️ Microsoft Sentinel
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=MicrosoftSentinelBlog`
+- **내용**: Sentinel SIEM, 헌팅 쿼리, 커넥터
+
+#### 🤖 AI Agent 시대 필수 피드 (2개 - Phase 1 신규)
+
+##### 피드 6: 🤖 Azure AI Blog
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureAIBlog`
+- **내용**: Azure AI 서비스, GPT-4, Copilot Studio, AI Agent 개발
+
+##### 피드 7: 🧠 Microsoft 365 Copilot Blog
+- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=Microsoft365CopilotBlog`
+- **내용**: M365 Copilot, Agent Builder, 확장성, 엔터프라이즈 배포
+
+> **참고**: 피드는 `rssFeedUrls` 파라미터 배열에서 동적으로 읽어옵니다. For Each 루프가 모든 피드를 자동으로 순회합니다.
 
 **동작**:
-- 각 RSS 액션은 최근 게시글을 XML 형식으로 가져옵니다.
+- 각 RSS 액션은 최근 24시간 게시글을 XML 형식으로 가져옵니다 (`since: @{addDays(utcNow(), -1)}`).
 - 출력은 `items` 배열에 저장됩니다 (각 항목: title, link, publishDate, description).
 
 ### 4. RSS 피드 파싱
