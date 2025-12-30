@@ -232,20 +232,37 @@ graph TB
 
 각 RSS 피드에 대해 **For Each** 루프가 개별 게시글을 처리합니다.
 
-#### 5.1 중복 체크 (Table Storage 조회)
+#### 5.1 중복 체크 (CheckDuplicate Function)
 
 **목적**: 이전에 처리된 게시글을 건너뜁니다.
 
-**동작**:
-1. 게시글 링크에서 고유 ID 생성 (해시 또는 추출)
-2. Table Storage에서 기존 항목 조회:
-   - **테이블 이름**: `ProcessedPosts`
-   - **PartitionKey**: `SecurityBlog`
-   - **RowKey**: `{postId}` (게시글의 고유 식별자)
+**Function**: `CheckDuplicate`
 
-3. 결과에 따라:
-   - **발견됨**: `isNew = false`로 설정, 처리 건너뛰기
-   - **발견 안 됨**: `isNew = true`로 설정, 계속 진행
+**입력 페이로드**:
+```json
+{
+  "link": "@{items('For_Each_Item')?['link']}",
+  "sourceName": "Microsoft Security Blog"
+}
+```
+
+**Function 동작**:
+1. 게시글 링크를 SHA256 해시로 변환
+2. Base64 URL-safe 인코딩으로 RowKey 생성
+3. Table Storage에서 기존 항목 조회:
+   - **테이블 이름**: `ProcessedPosts`
+   - **PartitionKey**: `sourceName` (피드명)
+   - **RowKey**: SHA256 해시
+4. 결과 반환:
+   - **발견됨**: `{ "isDuplicate": true }`
+   - **발견 안 됨**: `{ "isDuplicate": false }`
+
+**Function 출력**:
+```json
+{
+  "isDuplicate": false
+}
+```
 
 **Logic App Condition**:
 ```json
@@ -254,8 +271,8 @@ graph TB
     "and": [
       {
         "equals": [
-          "@outputs('Get_Entity_-_Check_if_Processed')?['statusCode']",
-          404
+          "@body('CheckDuplicate_HTTP')?['isDuplicate']",
+          false
         ]
       }
     ]
@@ -266,39 +283,67 @@ graph TB
 
 #### 5.2 Azure Functions 호출 (요약 생성)
 
-**조건**: `isNew = true`인 경우에만 실행됩니다.
+**조건**: `isDuplicate = false`인 경우에만 실행됩니다.
 
 **Function**: `SummarizePost`
 
 **입력 페이로드**:
 ```json
 {
-  "url": "@{items('For_Each_Item_-_Feed_1')?['link']}",
-  "title": "@{items('For_Each_Item_-_Feed_1')?['title']}",
-  "description": "@{items('For_Each_Item_-_Feed_1')?['description']}"
+  "url": "@{items('For_Each_Item')?['link']}",
+  "title": "@{items('For_Each_Item')?['title']}",
+  "description": "@{items('For_Each_Item')?['description']}"
 }
 ```
 
 **Function 동작**:
 1. Azure OpenAI GPT-4o를 사용하여 게시글 요약 생성
-2. 영어 및 한국어로 요약 생성
-3. Table Storage에 결과 저장:
-   - **PartitionKey**: `SecurityBlog`
-   - **RowKey**: `{postId}`
-   - **Title**: 게시글 제목
-   - **Url**: 게시글 링크
-   - **SummaryEnglish**: 영어 요약
-   - **SummaryKorean**: 한국어 요약
-   - **ProcessedDate**: 처리 날짜 (ISO 8601)
-   - **IsProcessed**: `true`
+2. 영어 및 한국어로 요약 생성 (각 2-3문장)
+3. 핵심 인사이트 추출
 
 **Function 출력**:
 ```json
 {
-  "postId": "abc123def456",
-  "summaryEnglish": "Summary in English...",
-  "summaryKorean": "한국어 요약...",
-  "isProcessed": true
+  "koreanSummary": ["한글 요약 문장 1", "한글 요약 문장 2"],
+  "englishSummary": ["English summary 1", "English summary 2"]
+}
+```
+
+#### 5.3 처리된 게시글 저장 (InsertProcessed Function)
+
+**조건**: 요약 생성 후 실행됩니다.
+
+**Function**: `InsertProcessed`
+
+**입력 페이로드**:
+```json
+{
+  "title": "@{items('For_Each_Item')?['title']}",
+  "link": "@{items('For_Each_Item')?['link']}",
+  "sourceName": "Microsoft Security Blog",
+  "summary": "@{items('For_Each_Item')?['description']}",
+  "publishDate": "@{items('For_Each_Item')?['publishDate']}",
+  "koreanSummary": "@{body('SummarizePost_HTTP')?['koreanSummary']}",
+  "englishSummary": "@{body('SummarizePost_HTTP')?['englishSummary']}"
+}
+```
+
+**Function 동작**:
+1. 게시글 링크를 SHA256 해시로 변환 (RowKey 생성)
+2. Table Storage에 Entity 생성:
+   - **PartitionKey**: `sourceName`
+   - **RowKey**: SHA256 해시
+   - **KoreanSummary**: JSON 문자열로 직렬화
+   - **EnglishSummary**: JSON 문자열로 직렬화
+   - **ProcessedDate**: 현재 타임스탬프
+3. UpsertEntity (Replace 모드) - 중복 시 덮어쓰기
+
+**Function 출력**:
+```json
+{
+  "success": true,
+  "partitionKey": "Microsoft Security Blog",
+  "rowKey": "abc123..."
 }
 ```
 

@@ -78,8 +78,11 @@ graph TB
     end
     
     subgraph "Azure Functions (.NET 8)"
-        F1[SummarizePost API]
-        F2[GenerateEmailHtml API]
+        F1[CheckDuplicate API]
+        F2[SummarizePost API]
+        F3[InsertProcessed API]
+        F4[GetRecentPosts API]
+        F5[GenerateEmailHtml API]
     end
     
     subgraph "Azure Services"
@@ -94,10 +97,15 @@ graph TB
     LA2 --> RSS6 & RSS7 & RSS8 & RSS9 & RSS10 & RSS11
     RSS1 & RSS2 & RSS3 & RSS4 & RSS5 --> F1
     RSS6 & RSS7 & RSS8 & RSS9 & RSS10 & RSS11 --> F1
-    F1 --> AOAI
     F1 --> STORAGE
     F1 --> F2
-    F2 --> O365[Office 365 Email]
+    F2 --> AOAI
+    F2 --> F3
+    F3 --> STORAGE
+    F3 --> F4
+    F3 --> F5
+    F4 --> STORAGE
+    F5 --> O365[Office 365 Email]
     F1 & F2 --> APPINS
     
     style T1 fill:#90EE90
@@ -172,10 +180,15 @@ infra/
 ### Azure Resources
 
 - **Logic App (Standard)**: 워크플로우 오케스트레이션
-- **Function App (.NET 8 Isolated)**:
-  - `SummarizePost`: Azure OpenAI 기반 게시글 요약
+- **Function App (.NET 8 Isolated)**: 5개 HTTP Trigger Functions
+  - `CheckDuplicate`: Table Storage 기반 중복 게시글 확인 (SHA256 해시)
+  - `SummarizePost`: Azure OpenAI 기반 게시글 요약 (영문/한글)
+  - `InsertProcessed`: 처리된 게시글을 Table Storage에 저장
+  - `GetRecentPosts`: 최근 처리된 게시글 조회 (날짜 필터링)
   - `GenerateEmailHtml`: 이메일 HTML 생성
 - **Azure Table Storage**: 처리된 게시글 중복 방지 (ProcessedPosts 테이블)
+  - PartitionKey: SourceName (피드명)
+  - RowKey: SHA256 해시 (게시글 링크의 Base64 URL-safe 인코딩)
 - **Azure OpenAI**: GPT-4o 모델 기반 요약 생성
 - **Application Insights**: 모니터링 및 로깅
 - **Office 365 Connector**: 이메일 발송
