@@ -52,3 +52,37 @@ deploy-*.ps1
 analyze-*.py
 check-*.py
 find-*.py
+# Temporary analysis and debug files
+*.json.backup
+all-actions-detail.json
+azure-*.json
+current-*.json
+deployed-*.json
+full-params-*.json
+latest-*.json
+list-rss-*.json
+*.html
+*.ps1.bak
+
+# Development documentation
+AUTOMATION-COMPLETE.md
+COMPREHENSIVE-AUDIT-REPORT.md
+DEEP-DIVE-VALIDATION-REPORT.md
+DIAGNOSIS.md
+FINAL-*.md
+QUICK-START.ps1
+SCHEDULE-CHANGE-COMPLETE.md
+TEST-EMAIL-PREVIEW.html
+VALIDATION-REPORT.md
+완전수정요약.md
+
+# Python scripts (keep essential ones only)
+analyze-*.py
+check-*.py
+create-*.py
+deploy-*.py
+fix-*.py
+find-*.py
+generate-*.py
+insert-*.py
+validate-*.py
