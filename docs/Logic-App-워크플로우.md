@@ -31,7 +31,7 @@
 
 ```mermaid
 graph TB
-    A[Recurrence Trigger<br/>Security: 07:00, 15:00, 22:00<br/>Azure: 08:00, 16:00, 23:00] --> B[Initialize CurrentDateTime]
+    A["Recurrence Trigger\nSecurity: 07:00, 15:00, 22:00\nAzure Cloud: 08:00, 16:00, 23:00"] --> B[Initialize CurrentDateTime]
     B --> C[Initialize AllPosts Array]
     C --> D[For Each RSS Feed in rssFeedUrls]
     
@@ -39,7 +39,7 @@ graph TB
     E --> F[Parse RSS Feed]
     F --> G[For Each Item in Feed]
     
-    G --> H{Already<br/>Processed?}
+    G --> H{"Already\nProcessed?"}
     H -->|No| I[SummarizePost API]
     H -->|Yes| J[Skip Item]
     
@@ -47,12 +47,12 @@ graph TB
     K --> L[Add to AllPosts Array]
     J --> L
     
-    L --> M{More<br/>Items?}
+    L --> M{"More\nItems?"}
     M -->|Yes| G
-    M -->|No| N{More<br/>Feeds?}
+    M -->|No| N{"More\nFeeds?"}
     
     N -->|Yes| D
-    N -->|No| O{New Posts<br/>Detected?}
+    N -->|No| O{"New Posts\nDetected?"}
     
     O -->|Yes| P[GenerateEmailHtml API]
     O -->|No| Q[Generate 'No New Posts' Email]

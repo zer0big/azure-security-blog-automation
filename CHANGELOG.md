@@ -17,7 +17,7 @@
   - Microsoft Security Blog 전용 `wp-block-paragraph` 패턴 우선
   - 범용 fallback 패턴: entry-content, article, post-content
   - User-Agent 설정으로 봇 차단 완화
-  - 12초 timeout, 예외 처리 완벽
+  - 12초 timeout, 예외 처리 구현
   - 실패 시 RSS description으로 자동 fallback
   
 - **AOAI 한국어 핵심 인사이트**: `TryTranslateKoreanBatchAsync` 개선
@@ -117,7 +117,7 @@
   - 웹 스크래핑 HTTP: 12초 (RssHttp 공유)
 - **에러 처리**:
   - 모든 외부 호출에 try-catch
-  - Fallback 메커니즘 완벽
+  - Fallback 메커니즘 구현
   - Best-effort Storage (실패해도 계속)
 - **안정성**: 100% (잠재 위험 모두 허용 가능한 수준)
 
