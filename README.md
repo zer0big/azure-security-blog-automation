@@ -54,31 +54,34 @@ Microsoft 보안 관련 블로그의 최신 게시글을 자동으로 수집하�
 ```mermaid
 graph TB
     subgraph "Triggers"
-        T1[Security Workflow<br/>07:00, 15:00, 22:00 KST]
-        T2[Azure Cloud Workflow<br/>08:00, 16:00, 23:00 KST]
+        T1["Security Workflow
+        07:00, 15:00, 22:00 KST"]
+        T2["Azure Cloud Workflow
+        08:00, 16:00, 23:00 KST"]
     end
     
     subgraph "Logic App #1: Security"
         LA1[Security Workflow]
-        RSS1[🛡️ MS Security Blog]
-        RSS2[🔐 MS Sentinel Blog]
-        RSS3[🌐 Zero Trust Blog]
-        RSS4[🎯 Threat Intelligence]
-        RSS5[💡 Cybersecurity Insights]
+        RSS1[MS Security Blog]
+        RSS2[MS Sentinel Blog]
+        RSS3[Zero Trust Blog]
+        RSS4[Threat Intelligence]
+        RSS5[Cybersecurity Insights]
     end
     
     subgraph "Logic App #2: Azure/Cloud"
-        LA2[Azure/Cloud Workflow]
-        RSS6[🔧 Azure DevOps Blog]
-        RSS7[📊 Azure Architecture]
-        RSS8[🏗️ Azure Infrastructure]
-        RSS9[🏢 Azure Governance]
-        RSS10[🔨 DevOps Community]
-        RSS11[⚡ Integration Services]
+        LA2[Azure Cloud Workflow]
+        RSS6[Azure DevOps Blog]
+        RSS7[Azure Architecture]
+        RSS8[Azure Infrastructure]
+        RSS9[Azure Governance]
+        RSS10[DevOps Community]
+        RSS11[Integration Services]
     end
     
-    subgraph "Azure Functions (.NET 8)"
-        F1[BuildDigest API<br/>(웹 스크래핑 + AOAI + 필터링)]
+    subgraph "Azure Functions - .NET 8"
+        F1["BuildDigest API
+        Core Processing Engine"]
         F2[CheckDuplicate API]
         F3[GetRecentPosts API]
         F4[ListRssFeedItems API]
@@ -100,18 +103,20 @@ graph TB
     RSS1 & RSS2 & RSS3 & RSS4 & RSS5 --> F1
     RSS6 & RSS7 & RSS8 & RSS9 & RSS10 & RSS11 --> F1
     F1 --> STORAGE
+    F1 --> AOAI
     F1 --> F2
-    F2 --> AOAI
     F2 --> F3
-    F3 --> STORAGE
     F3 --> F4
-    F3 --> F5
-    F4 --> STORAGE
-    F5 --> O365[Office 365 Email]
-    F1 & F2 --> APPINS
+    F4 --> F5
+    F5 --> F6
+    F6 --> F7
+    F7 --> STORAGE
+    F6 --> O365[Office 365 Email]
+    F1 --> APPINS
     
     style T1 fill:#90EE90
     style T2 fill:#90EE90
+    style F1 fill:#FF6B6B
     style AOAI fill:#FFD700
     style STORAGE fill:#87CEEB
     style APPINS fill:#FFA07A
@@ -305,7 +310,7 @@ STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;...
 │    새로운 게시글 3개         │
 └─────────────────────────────┘
 
-�️ Microsoft Security Blog
+🛡️ Microsoft Security Blog
 제목: How Microsoft builds privacy and security to work hand in hand
 📅 2026-01-13 18:00
 
