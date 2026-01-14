@@ -163,140 +163,75 @@ func azure functionapp publish func-dev-security-blog-automation
 
 ### Infrastructure as Code (IaC)
 
-모든 Azure 리소스는 Bicep으로 정의되어 있으며, 재현 가능한 배포를 보장합니다.
+모든 Azure 리소스는 **Bicep**으로 정의되어 재현 가능한 배포를 보장합니다.
 
 ```
 infra/
 ├── bicep/
-│   ├── main.bicep                         # 메인 오케스트레이션 템플릿
-│   ├── modules/
-│   │   ├── storage.bicep                  # Storage Account + ProcessedPosts 테이블
-│   │   ├── function-app.bicep             # Function App + App Service Plan
-│   │   ├── logic-app.bicep                # Security Logic App
-│   │   ├── logic-app-azure-cloud.bicep    # Azure/Cloud Logic App
-│   │   └── app-insights.bicep             # Application Insights + Log Analytics
-│   └── parameters/
-│       └── dev.bicepparam                 # 개발 환경 파라미터
-├── logic-app/
-│   ├── workflow-full.json                 # Security 워크플로우 정의
-│   └── workflow-azure-cloud.json          # Azure/Cloud 워크플로우 정의
-├── deploy.ps1                         # PowerShell 배포 스크립트
-└── deploy.sh                          # Bash 배포 스크립트
+│   ├── main.bicep                     # 메인 템플릿
+│   ├── modules/                       # 모듈별 리소스 정의
+│   └── parameters/dev.bicepparam      # 개발 환경 파라미터
+├── logic-app/                     # Logic App 워크플로우 정의
+├── deploy.ps1                     # PowerShell 배포 스크립트
+└── deploy.sh                      # Bash 배포 스크립트
 ```
+
+**상세 배포 가이드**: [docs/배포-가이드.md](docs/배포-가이드.md)
 
 ### Azure Resources
 
-- **Logic App (Standard)**: 워크플로우 오케스트레이션
+- **Logic App (Standard) × 2**: 워크플로우 오케스트레이션
+  - Security Workflow: 5개 피드 (07:00, 15:00, 22:00 KST)
+  - Azure/Cloud Workflow: 6개 피드 (08:00, 16:00, 23:00 KST)
+  
 - **Function App (.NET 8 Isolated)**: 7개 HTTP Trigger Functions
-  - `BuildDigest`: **통합 처리 엔진** - RSS 피드 수집, 웹 스크래핑, AOAI 분석, 이메일 생성을 단일 엔드포인트로 처리
-    - 📰 RSS 피드 병렬 수집 (실패 시 자동 skip)
-    - 🌐 웹 스크래핑: 실제 블로그 페이지에서 첫 문단 추출 (wp-block-paragraph 패턴 우선)
-    - 🤖 AOAI 통합: 배치 처리로 한국어 핵심 인사이트 생성
-    - 🔍 24시간 필터링: newCutoff 기준으로 신규 게시물 판별
-    - 🚫 중복 제거: Table Storage 기반 SHA256 해시 체크
-    - 📧 이메일 HTML 생성: 첫 문단 + 핵심 인사이트 포함
-  - `CheckDuplicate`: 레거시 API (BuildDigest에 통합됨)
+  - **`BuildDigest`**: 🔥 **통합 처리 엔진** (v3.0 핵심)
+    - RSS 피드 병렬 수집 (FAIL 피드 자동 skip)
+    - 웹 스크래핑: 실제 블로그 첫 문단 추출
+    - AOAI 한국어 핵심 인사이트 생성 (배치 처리)
+    - 24시간 신규 게시물 필터링
+    - Table Storage 중복 제거 (SHA256 해시)
+    - 이메일 HTML 생성 (첫 문단 + 인사이트)
   - `GetRecentPosts`: 최근 처리된 게시글 조회
-  - `ListRssFeedItems`: RSS 피드 아이템 목록 조회
-  - `SummarizePost`: 레거시 요약 API (BuildDigest에 통합됨)
-  - `GenerateEmailHtml`: 레거시 HTML 생성 API (BuildDigest에 통합됨)
-  - `InsertProcessed`: 레거시 저장 API (BuildDigest에 통합됨)
-- **Azure Table Storage**: 처리된 게시글 중복 방지 (ProcessedPosts 테이블)
-  - PartitionKey: SourceName (피드명)
-  - RowKey: SHA256 해시 (게시글 링크의 Base64 URL-safe 인코딩)
-- **Azure OpenAI**: GPT-4o 모델 기반 요약 생성
-- **Application Insights**: 모니터링 및 로깅
-- **Office 365 Connector**: 이메일 발송
+  - `ListRssFeedItems`: RSS 피드 아이템 목록
+  - `CheckDuplicate`, `SummarizePost`, `GenerateEmailHtml`, `InsertProcessed`: 레거시 API (현재 BuildDigest로 통합됨)
 
-### RSS Feed 소스
+- **Azure Table Storage**: 중복 게시글 방지 (ProcessedPosts 테이블)
+  - PartitionKey: 피드명
+  - RowKey: SHA256(링크)
+  
+- **Azure OpenAI**: GPT-4o 기반 AI 인사이트 생성
+- **Application Insights**: 실시간 모니터링 및 로깅
+- **Office 365 Connector**: 자동 이메일 발송
 
-#### SummarizePost
-```csharp
-// Azure OpenAI를 활용한 보안 게시글 요약
-// 입력: 게시글 제목, 내용
-// 출력: 영문 핵심 인사이트 3줄, 한국어 요약 3줄
+## �️ 모니터링 및 운영
+
+### Application Insights 쿼리
+
+#### 최근 24시간 오류 확인
+```kusto
+traces
+| where timestamp > ago(24h)
+| where severityLevel >= 3
+| summarize count() by cloud_RoleName, severityLevel
 ```
 
-#### GenerateEmailHtml
-```csharp
-// 이메일 HTML 생성
-// 입력: 게시글 배열 (요약 포함)
-// 출력: HTML 본문, 제목
-// - 신규 있음: "[Microsoft Azure 업데이트] 새 게시글 N개"
-// - 신규 없음: "[Microsoft Azure 업데이트] 최근 게시글 요약 (신규 없음)"
+#### BuildDigest 실행 시간 분석
+```kusto
+requests
+| where timestamp > ago(7d)
+| where name == "BuildDigest"
+| summarize avg(duration), max(duration), count() by bin(timestamp, 1h)
 ```
 
-## 🚀 배포 방법
+### 일반적인 문제 해결
 
-### 사전 요구사항
-
-- Azure 구독
-- Azure CLI 설치
-- .NET 8 SDK
-- PowerShell 7+
-
-### 1. Azure 리소스 배포
-
-```bash
-# 리소스 그룹 생성
-az group create --name rg-security-blog-automation-dev --location koreacentral
-
-# Storage Account 생성
-az storage account create \
-  --name stdevsecurityblog \
-  --resource-group rg-security-blog-automation-dev \
-  --location koreacentral \
-  --sku Standard_LRS
-
-# Function App 생성
-az functionapp create \
-  --name func-dev-security-blog-automation \
-  --resource-group rg-security-blog-automation-dev \
-  --storage-account stdevsecurityblog \
-  --consumption-plan-location koreacentral \
-  --runtime dotnet-isolated \
-  --runtime-version 8 \
-  --functions-version 4
-```
-
-### 2. Functions 배포
-
-```bash
-cd functions
-dotnet clean
-dotnet publish --configuration Release --output ./publish
-cd publish
-zip -r ../deploy.zip .
-az functionapp deployment source config-zip \
-  --resource-group rg-security-blog-automation-dev \
-  --name func-dev-security-blog-automation \
-  --src ../deploy.zip
-```
-
-### 3. Logic App 설정
-
-Azure Portal에서 Logic App Designer를 통해 워크플로우 구성:
-
-1. **Recurrence 트리거**: 일 3회 (7, 15, 22시 KST)
-2. **RSS 커넥터**: 5개 피드 병렬 처리
-3. **Table Storage**: 중복 체크
-4. **Function 호출**: SummarizePost, GenerateEmailHtml
-5. **Office 365**: 이메일 발송
-
-## ⚙️ 환경 변수
-
-### Function App 설정
-
-```bash
-# Azure OpenAI 설정
-AZURE_OPENAI_ENDPOINT=https://your-openai.openai.azure.com/
-AZURE_OPENAI_KEY=your-key-here
-AZURE_OPENAI_DEPLOYMENT=gpt-4o
-
-# Storage 설정
-AzureWebJobsStorage=DefaultEndpointsProtocol=https;...
-STORAGE_CONNECTION_STRING=DefaultEndpointsProtocol=https;...
-```
+| 증상 | 원인 | 해결 방법 |
+|------|------|----------|
+| AOAI fallback 텍스트 표시 | AOAI 환경변수 미설정 또는 quota 초과 | 환경변수 확인, quota 증설 |
+| 웹 스크래핑 실패 | 블로그 구조 변경, timeout | HTML 패턴 업데이트, timeout 증가 |
+| 신규 게시글 판별 오류 | 시간대 불일치 | newCutoff 로직 확인 |
+| 이메일 미발송 | Office 365 connector 권한 | Logic App Designer에서 재인증 |
 
 ## 📧 이메일 형식
 
@@ -342,42 +277,34 @@ in their respective domains...
 ...
 ```
 
-## 🔧 주요 설정
+## �️ 모니터링 및 운영
 
-### RSS 피드 목록
+### Application Insights 쿼리
 
-#### 워크플로우 #1: Security Blog (5개)
+#### 최근 24시간 오류 확인
+```kusto
+traces
+| where timestamp > ago(24h)
+| where severityLevel >= 3
+| summarize count() by cloud_RoleName, severityLevel
+```
 
-| 이모지 | 피드 이름 | URL |
-|-------|----------|-----|
-| 🛡️ | Microsoft Security Blog | https://www.microsoft.com/en-us/security/blog/feed/ |
-| 🔐 | Microsoft Sentinel Blog | https://www.microsoft.com/en-us/security/blog/topic/microsoft-sentinel/feed/ |
-| 🌐 | Zero Trust Blog | https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/ |
-| 🎯 | Threat Intelligence | https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/feed/ |
-| 💡 | Cybersecurity Insights | https://www.microsoft.com/en-us/security/blog/topic/cybersecurity/feed/ |
+#### BuildDigest 실행 시간 분석
+```kusto
+requests
+| where timestamp > ago(7d)
+| where name == "BuildDigest"
+| summarize avg(duration), max(duration), count() by bin(timestamp, 1h)
+```
 
-#### 워크플로우 #2: Azure/Cloud Blog (6개)
+### 일반적인 문제 해결
 
-| 이모지 | 피드 이름 | URL |
-|-------|----------|-----|
-| 🔧 | Azure DevOps Blog | https://devblogs.microsoft.com/devops/feed/ |
-| 📊 | Azure Architecture Blog | https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureArchitectureBlog |
-| 🏗️ | Azure Infrastructure Blog | https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureInfrastructureBlog |
-| 🏢 | Azure Governance and Management Blog | https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureGovernanceandManagementBlog |
-| 🔨 | Azure DevOps Community | https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureDevOpsBlog |
-| ⚡ | Azure Integration Services Blog | https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=IntegrationsonAzureBlog |
-
-### 스케줄
-
-#### 워크플로우 #1: Security Blog
-- 매일 07:00 KST
-- 매일 15:00 KST
-- 매일 22:00 KST
-
-#### 워크플로우 #2: Azure/Cloud Blog
-- 매일 08:00 KST
-- 매일 16:00 KST
-- 매일 23:00 KST
+| 증상 | 원인 | 해결 방법 |
+|------|------|----------|
+| AOAI fallback 텍스트 표시 | AOAI 환경변수 미설정 또는 quota 초과 | 환경변수 확인, quota 증설 |
+| 웹 스크래핑 실패 | 블로그 구조 변경, timeout | HTML 패턴 업데이트, timeout 증가 |
+| 신규 게시글 판별 오류 | 시간대 불일치 | newCutoff 로직 확인 |
+| 이메일 미발송 | Office 365 connector 권한 | Logic App Designer에서 재인증 |
 
 ## 📝 라이선스
 
