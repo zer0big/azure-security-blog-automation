@@ -1,0 +1,130 @@
+﻿# Build outputs
+bin/
+obj/
+publish/
+*.dll
+*.exe
+*.pdb
+
+# Package files
+*.zip
+*.nupkg
+
+# User-specific files
+*.user
+*.suo
+.vs/
+
+# Azure Functions
+local.settings.json
+*.azurefunctions/
+functions.metadata
+
+# Artifacts and backups
+.artifacts/
+.backups/
+
+# Scripts output
+.scripts/output/
+
+# Temporary files
+*.tmp
+*.temp
+temp-*.json
+current-*.json
+currently-deployed.json
+logic-app-*.json
+workflow-*-fixed.json
+workflow-*.json
+!infra/logic-app/workflow*.json
+full-params-*.json
+params-*.json
+*-updated.json
+*-backup.json
+*-actual.json
+
+# Sensitive files - NEVER COMMIT
+token.txt
+*.key
+*.pem
+secrets.json
+security-params.json
+azure-cloud-params.json
+*-params.json
+!infra/bicep/parameters/*.bicepparam
+
+# Deployment temp files
+deploy-*.json
+!infra/**/*.json
+deploy-logic-app-2*.py
+deploy-workflow-*.py
+deploy-*.ps1
+
+# Debug/Analysis JSON files
+*-detail.json
+*-details.json
+*-output.json
+*-request.json
+*-response.json
+all-actions-*.json
+azure-*.json
+!infra/**/*.json
+deployed-*.json
+latest-*.json
+list-rss-*.json
+security-*.json
+set-*.json
+table-storage-*.json
+for-each-*.json
+condition-*.json
+generate-email-*.json
+morning-*.json
+old-*.json
+email-action.json
+test-*.json
+verification-*.json
+
+# Temp Python/PowerShell/JS scripts
+analyze-*.py
+check-*.py
+comprehensive-*.py
+create-*.py
+create-*.js
+deploy-*.py
+final-*.py
+fix-*.py
+find-*.py
+generate-*.py
+insert-*.py
+send-*.py
+test-*.py
+update-*.py
+validate-*.py
+verify-*.py
+monitor-*.ps1
+update-*.ps1
+
+# Temp markdown docs
+AUTOMATION-COMPLETE.md
+COMPREHENSIVE-AUDIT-REPORT.md
+DEEP-DIVE-VALIDATION-REPORT.md
+DIAGNOSIS.md
+FINAL-*.md
+FIX-README.md
+QUICK-START.md
+!docs/QUICK-START.md
+QUICK-START.ps1
+SCHEDULE-CHANGE-COMPLETE.md
+TEST-EMAIL-PREVIEW.html
+URGENT-*.md
+VALIDATION-REPORT.md
+완전수정요약.md
+
+# HTML output
+*.html
+
+# IDE
+.vscode/
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json

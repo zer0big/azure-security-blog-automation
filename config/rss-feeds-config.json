@@ -1,0 +1,123 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-01-13",
+  "description": "Centralized RSS feed configuration for both Logic Apps",
+  "securityFeeds": [
+    {
+      "sourceName": "Microsoft Security Blog",
+      "url": "https://www.microsoft.com/en-us/security/blog/feed/",
+      "emoji": "🛡️",
+      "category": "security",
+      "active": true,
+      "notes": "Main Microsoft Security Blog - may have 403 issues occasionally"
+    },
+    {
+      "sourceName": "Microsoft Sentinel Blog",
+      "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog",
+      "emoji": "🔐",
+      "category": "security",
+      "active": true,
+      "notes": "Tech Community RSS format - reliable"
+    },
+    {
+      "sourceName": "Microsoft Defender Blog",
+      "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog",
+      "emoji": "🛡️",
+      "category": "security",
+      "active": true,
+      "notes": "Tech Community RSS format"
+    },
+    {
+      "sourceName": "Zero Trust Blog",
+      "url": "https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/",
+      "emoji": "🌐",
+      "category": "security",
+      "active": true,
+      "notes": "Zero Trust architecture and implementation"
+    },
+    {
+      "sourceName": "Identity Blog",
+      "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity",
+      "emoji": "🔑",
+      "category": "security",
+      "active": true,
+      "notes": "Identity and access management"
+    }
+  ],
+  "azureCloudFeeds": [
+    {
+      "sourceName": "Azure Blog",
+      "url": "https://azure.microsoft.com/en-us/blog/feed/",
+      "emoji": "☁️",
+      "category": "azure",
+      "active": true,
+      "notes": "Official Azure Blog - main announcements"
+    },
+    {
+      "sourceName": "Azure DevOps Blog",
+      "url": "https://devblogs.microsoft.com/devops/feed/",
+      "emoji": "🔧",
+      "category": "devops",
+      "active": true,
+      "notes": "Azure DevOps and CI/CD"
+    },
+    {
+      "sourceName": "Fabric Blog",
+      "url": "https://blog.fabric.microsoft.com/en-us/blog/feed/",
+      "emoji": "📊",
+      "category": "data",
+      "active": true,
+      "notes": "Microsoft Fabric - unified analytics platform"
+    },
+    {
+      "sourceName": "Azure Infrastructure Blog",
+      "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=AzureInfrastructureBlog",
+      "emoji": "🏗️",
+      "category": "infrastructure",
+      "active": true,
+      "notes": "Networking, compute, storage infrastructure"
+    },
+    {
+      "sourceName": "Microsoft 365 Dev Blog",
+      "url": "https://devblogs.microsoft.com/microsoft365dev/feed/",
+      "emoji": "🔨",
+      "category": "dev",
+      "active": true,
+      "notes": "Microsoft 365 development"
+    },
+    {
+      "sourceName": "Power Platform Blog",
+      "url": "https://cloudblogs.microsoft.com/powerplatform/feed/",
+      "emoji": "⚡",
+      "category": "lowcode",
+      "active": true,
+      "notes": "Power Platform - low-code solutions"
+    },
+    {
+      "sourceName": "Azure AI Foundry Blog",
+      "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=azure-ai-foundry-blog",
+      "emoji": "🤖",
+      "category": "ai",
+      "active": true,
+      "notes": "Azure AI and ML services - NEW FEED ADDED 2026-01-13"
+    }
+  ],
+  "schedules": {
+    "security": {
+      "hours": [7, 15, 22],
+      "timezone": "Korea Standard Time",
+      "description": "Every day at 07:00, 15:00, 22:00 (KST)"
+    },
+    "azureCloud": {
+      "hours": [8, 16, 23],
+      "timezone": "Korea Standard Time",
+      "description": "Every day at 08:00, 16:00, 23:00 (KST)"
+    }
+  },
+  "commonSettings": {
+    "emailRecipient": "<your-email@example.com>",
+    "resourceGroup": "rg-security-blog-automation-dev",
+    "functionsAppUrl": "https://<your-function-app>.azurewebsites.net",
+    "subscriptionId": "<your-subscription-id>"
+  }
+}

@@ -1,0 +1,632 @@
+{
+  "accessEndpoint": "https://prod-31.koreacentral.logic.azure.com:443/workflows/5fba9db657bf4a63b2f4c79ef1175b00",
+  "changedTime": "2025-12-27T11:32:18.2771321Z",
+  "createdTime": "2025-12-20T12:57:23.9813335Z",
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "actions": {
+      "For_Each_RSS_Feed": {
+        "actions": {
+          "Condition_Has_Items": {
+            "actions": {
+              "Append_No_New_Posts": {
+                "inputs": {
+                  "name": "allPosts",
+                  "value": {
+                    "englishSummary": [
+                      "No new posts in the last 24 hours."
+                    ],
+                    "koreanSummary": [
+                      "No new posts in the last 24 hours."
+                    ],
+                    "link": "",
+                    "publishDate": "@utcNow()",
+                    "sourceName": "@items('For_Each_RSS_Feed')?['sourceName']",
+                    "summary": "No new posts",
+                    "title": "No new posts in last 24 hours"
+                  }
+                },
+                "runAfter": {},
+                "type": "AppendToArrayVariable"
+              }
+            },
+            "expression": {
+              "and": [
+                {
+                  "equals": [
+                    "@length(body('List_RSS_Feed_Items'))",
+                    0
+                  ]
+                }
+              ]
+            },
+            "runAfter": {
+              "List_RSS_Feed_Items": [
+                "Succeeded"
+              ]
+            },
+            "type": "If"
+          },
+          "For_Each_RSS_Item": {
+            "actions": {
+              "Check_Duplicate": {
+                "inputs": {
+                  "body": {
+                    "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                    "sourceName": "@{items('For_Each_RSS_Feed')['sourceName']}"
+                  },
+                  "headers": {
+                    "Content-Type": "application/json"
+                  },
+                  "method": "POST",
+                  "retryPolicy": {
+                    "count": 3,
+                    "interval": "PT5S",
+                    "maximumInterval": "PT30M",
+                    "minimumInterval": "PT5S",
+                    "type": "exponential"
+                  },
+                  "timeout": "PT30S",
+                  "uri": "@{parameters('functionsAppUrl')}/api/CheckDuplicate?code=@{parameters('functionKey')}"
+                },
+                "runAfter": {},
+                "type": "Http"
+              },
+              "Condition_Is_New": {
+                "actions": {
+                  "Append_To_All_Posts": {
+                    "inputs": {
+                      "name": "allPosts",
+                      "value": {
+                        "englishSummary": "@{body('Call_Summarize_Post')?['englishSummary']}",
+                        "koreanSummary": "@{body('Call_Summarize_Post')?['koreanSummary']}",
+                        "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                        "publishDate": "@{items('For_Each_RSS_Item')?['publishDate']}",
+                        "sourceName": "@{items('For_Each_RSS_Feed')['sourceName']}",
+                        "summary": "@{items('For_Each_RSS_Item')?['summary']}",
+                        "title": "@{items('For_Each_RSS_Item')?['title']}"
+                      }
+                    },
+                    "runAfter": {
+                      "Call_Summarize_Post": [
+                        "Succeeded"
+                      ]
+                    },
+                    "type": "AppendToArrayVariable"
+                  },
+                  "Call_Summarize_Post": {
+                    "inputs": {
+                      "body": {
+                        "content": "@{items('For_Each_RSS_Item')?['summary']}",
+                        "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                        "title": "@{items('For_Each_RSS_Item')?['title']}"
+                      },
+                      "headers": {
+                        "Content-Type": "application/json"
+                      },
+                      "method": "POST",
+                      "retryPolicy": {
+                        "count": 4,
+                        "interval": "PT10S",
+                        "maximumInterval": "PT1H",
+                        "minimumInterval": "PT5S",
+                        "type": "exponential"
+                      },
+                      "timeout": "PT3M",
+                      "uri": "@{parameters('functionsAppUrl')}/api/SummarizePost?code=@{parameters('functionKey')}"
+                    },
+                    "runAfter": {},
+                    "trackedProperties": {
+                      "postTitle": "@items('For_Each_RSS_Item')?['title']",
+                      "sourceName": "@items('For_Each_RSS_Feed')?['name']",
+                      "summarizeStartTime": "@utcNow()"
+                    },
+                    "type": "Http"
+                  },
+                  "Insert_To_Table_Storage": {
+                    "inputs": {
+                      "body": {
+                        "englishSummary": "@body('Call_Summarize_Post')?['englishSummary']",
+                        "koreanSummary": "@body('Call_Summarize_Post')?['koreanSummary']",
+                        "link": "@{items('For_Each_RSS_Item')?['primaryLink']}",
+                        "publishDate": "@{items('For_Each_RSS_Item')?['publishDate']}",
+                        "sourceName": "@{items('For_Each_RSS_Feed')['sourceName']}",
+                        "summary": "@{items('For_Each_RSS_Item')?['summary']}",
+                        "title": "@{items('For_Each_RSS_Item')?['title']}"
+                      },
+                      "headers": {
+                        "Content-Type": "application/json"
+                      },
+                      "method": "POST",
+                      "retryPolicy": {
+                        "count": 3,
+                        "interval": "PT5S",
+                        "maximumInterval": "PT30M",
+                        "minimumInterval": "PT5S",
+                        "type": "exponential"
+                      },
+                      "timeout": "PT30S",
+                      "uri": "@{parameters('functionsAppUrl')}/api/InsertProcessed?code=@{parameters('functionKey')}"
+                    },
+                    "runAfter": {
+                      "Append_To_All_Posts": [
+                        "Succeeded"
+                      ]
+                    },
+                    "type": "Http"
+                  }
+                },
+                "expression": {
+                  "and": [
+                    {
+                      "equals": [
+                        "@body('Check_Duplicate')?['isDuplicate']",
+                        false
+                      ]
+                    }
+                  ]
+                },
+                "runAfter": {
+                  "Check_Duplicate": [
+                    "Succeeded"
+                  ]
+                },
+                "type": "If"
+              }
+            },
+            "foreach": "@body('List_RSS_Feed_Items')",
+            "runAfter": {
+              "List_RSS_Feed_Items": [
+                "Succeeded"
+              ]
+            },
+            "runtimeConfiguration": {
+              "concurrency": {
+                "repetitions": 5
+              }
+            },
+            "type": "Foreach"
+          },
+          "List_RSS_Feed_Items": {
+            "inputs": {
+              "host": {
+                "connection": {
+                  "name": "@parameters('$connections')['rss']['connectionId']"
+                }
+              },
+              "method": "get",
+              "path": "/ListFeedItems",
+              "queries": {
+                "feedUrl": "@{items('For_Each_RSS_Feed')['url']}",
+                "since": "@{addDays(utcNow(), -1)}"
+              }
+            },
+            "runAfter": {},
+            "type": "ApiConnection"
+          }
+        },
+        "foreach": "@parameters('rssFeedUrls')",
+        "runAfter": {
+          "Initialize_All_Posts": [
+            "Succeeded"
+          ]
+        },
+        "runtimeConfiguration": {
+          "concurrency": {
+            "repetitions": 3
+          }
+        },
+        "trackedProperties": {
+          "startTime": "@utcNow()"
+        },
+        "type": "Foreach"
+      },
+      "Generate_Email_HTML": {
+        "inputs": {
+          "body": {
+            "posts": "@variables('allPosts')"
+          },
+          "headers": {
+            "Content-Type": "application/json",
+            "x-functions-key": "@parameters('functionKey')"
+          },
+          "method": "POST",
+          "retryPolicy": {
+            "count": 3,
+            "interval": "PT5S",
+            "maximumInterval": "PT30M",
+            "minimumInterval": "PT5S",
+            "type": "exponential"
+          },
+          "timeout": "PT1M",
+          "uri": "@{parameters('functionsAppUrl')}/api/GenerateEmailHtml"
+        },
+        "runAfter": {
+          "Get_All_Recent_Posts": [
+            "Succeeded"
+          ]
+        },
+        "type": "Http"
+      },
+      "Get_All_Recent_Posts": {
+        "actions": {
+          "Call_GetRecentPosts": {
+            "inputs": {
+              "body": {
+                "Limit": 15
+              },
+              "headers": {
+                "Content-Type": "application/json"
+              },
+              "method": "POST",
+              "retryPolicy": {
+                "count": 3,
+                "interval": "PT5S",
+                "maximumInterval": "PT30M",
+                "minimumInterval": "PT5S",
+                "type": "exponential"
+              },
+              "timeout": "PT30S",
+              "uri": "@{parameters('functionsAppUrl')}/api/GetRecentPosts?code=@{parameters('functionKey')}&daysSince=1"
+            },
+            "runAfter": {},
+            "type": "Http"
+          },
+          "Set_All_Posts_From_Table": {
+            "inputs": {
+              "name": "allPosts",
+              "value": "@body('Call_GetRecentPosts')"
+            },
+            "runAfter": {
+              "Call_GetRecentPosts": [
+                "Succeeded"
+              ]
+            },
+            "type": "SetVariable"
+          }
+        },
+        "expression": {
+          "and": [
+            {
+              "equals": [
+                "@length(variables('allPosts'))",
+                0
+              ]
+            }
+          ]
+        },
+        "runAfter": {
+          "For_Each_RSS_Feed": [
+            "Succeeded"
+          ]
+        },
+        "type": "If"
+      },
+      "Initialize_All_Posts": {
+        "inputs": {
+          "variables": [
+            {
+              "name": "allPosts",
+              "type": "array",
+              "value": []
+            }
+          ]
+        },
+        "runAfter": {},
+        "type": "InitializeVariable"
+      },
+      "Send_Consolidated_Email": {
+        "inputs": {
+          "body": {
+            "Body": "@{body('Generate_Email_HTML').html}",
+            "Importance": "Normal",
+            "IsHtml": true,
+            "Subject": "@{body('Generate_Email_HTML').subject}",
+            "To": "@parameters('emailRecipient')"
+          },
+          "host": {
+            "connection": {
+              "name": "@parameters('$connections')['office365']['connectionId']"
+            }
+          },
+          "method": "post",
+          "path": "/v2/Mail",
+          "retryPolicy": {
+            "count": 3,
+            "interval": "PT5S",
+            "maximumInterval": "PT1H",
+            "minimumInterval": "PT5S",
+            "type": "exponential"
+          }
+        },
+        "runAfter": {
+          "Generate_Email_HTML": [
+            "Succeeded"
+          ]
+        },
+        "trackedProperties": {
+          "emailSentTime": "@utcNow()",
+          "recipient": "@parameters('emailRecipient')"
+        },
+        "type": "ApiConnection"
+      },
+      "Send_Email_Error_Notification": {
+        "inputs": {
+          "body": {
+            "Body": "<html>\n<head>\n    <style>\n        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }\n        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n        .header { background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }\n        .header h1 { margin: 0; font-size: 24px; }\n        .content { background: #fff; padding: 20px; border: 1px solid #ddd; border-top: none; }\n        .error-box { background: #ffebee; border-left: 4px solid #d32f2f; padding: 15px; margin: 15px 0; border-radius: 4px; }\n        .info-section { background: #f5f5f5; padding: 15px; margin: 15px 0; border-radius: 4px; }\n        .label { font-weight: bold; color: #666; }\n        .value { color: #333; margin-left: 10px; }\n        .footer { background: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 8px 8px; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <h1>    </h1>\n        </div>\n        <div class=\"content\">\n            <div class=\"error-box\">\n                <h3 style=\"margin-top: 0; color: #d32f2f;\"> </h3>\n                <p>Azure Security Blog Automation     .</p>\n            </div>\n            \n            <div class=\"info-section\">\n                <h3 style=\"margin-top: 0;\"> </h3>\n                <p><span class=\"label\">  :</span><span class=\"value\">@{utcNow()}</span></p>\n                <p><span class=\"label\">Logic App:</span><span class=\"value\">logic-dev-security-blog-automation</span></p>\n                <p><span class=\"label\"> ID:</span><span class=\"value\">@{workflow().run.name}</span></p>\n            </div>\n            \n            <div class=\"info-section\">\n                <h3 style=\"margin-top: 0;\"> </h3>\n                <p><span class=\"label\"> :</span><span class=\"value\">Generate_Email_HTML</span></p>\n                <p>  Azure Portal .</p>\n            </div>\n            \n            <div style=\"margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 4px;\">\n                <h4 style=\"margin-top: 0;\">Azure Portal </h4>\n                <p>\n                    <a href=\"https://portal.azure.com/#@/resource/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Logic/workflows/logic-dev-security-blog-automation/runs/@{workflow().run.name}\" \n                       style=\"color: #1976d2; text-decoration: none;\">\n                         Azure Portal   \n                    </a>\n                </p>\n            </div>\n            \n            <div style=\"margin-top: 20px; padding: 15px; background: #fff3e0; border-radius: 4px;\">\n                <h4 style=\"margin-top: 0;\">  </h4>\n                <ul style=\"margin: 5px 0; padding-left: 20px;\">\n                    <li>Table Storage   </li>\n                    <li>Function App (GetRecentPosts)  </li>\n                    <li>  </li>\n                </ul>\n            </div>\n        </div>\n        <div class=\"footer\">\n            Azure Security Blog Automation System<br>\n               .\n        </div>\n    </div>\n</body>\n</html>",
+            "Importance": "High",
+            "Subject": "[ ] Azure Security Blog Automation -   ",
+            "To": "@parameters('emailRecipient')"
+          },
+          "host": {
+            "connection": {
+              "name": "@parameters('$connections')['office365']['connectionId']"
+            }
+          },
+          "method": "post",
+          "path": "/v2/Mail"
+        },
+        "runAfter": {
+          "Generate_Email_HTML": [
+            "Failed",
+            "TimedOut"
+          ]
+        },
+        "type": "ApiConnection"
+      },
+      "Send_Error_Notification": {
+        "inputs": {
+          "body": {
+            "Body": "<html>\n<head>\n    <style>\n        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; color: #333; }\n        .container { max-width: 600px; margin: 0 auto; padding: 20px; }\n        .header { background: linear-gradient(135deg, #d32f2f 0%, #f44336 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }\n        .header h1 { margin: 0; font-size: 24px; }\n        .content { background: #fff; padding: 20px; border: 1px solid #ddd; border-top: none; }\n        .error-box { background: #ffebee; border-left: 4px solid #d32f2f; padding: 15px; margin: 15px 0; border-radius: 4px; }\n        .info-section { background: #f5f5f5; padding: 15px; margin: 15px 0; border-radius: 4px; }\n        .label { font-weight: bold; color: #666; }\n        .value { color: #333; margin-left: 10px; }\n        .footer { background: #f5f5f5; padding: 15px; text-align: center; font-size: 12px; color: #666; border-radius: 0 0 8px 8px; }\n    </style>\n</head>\n<body>\n    <div class=\"container\">\n        <div class=\"header\">\n            <h1> RSS    </h1>\n        </div>\n        <div class=\"content\">\n            <div class=\"error-box\">\n                <h3 style=\"margin-top: 0; color: #d32f2f;\"> </h3>\n                <p>Azure Security Blog Automation RSS     .</p>\n            </div>\n            \n            <div class=\"info-section\">\n                <h3 style=\"margin-top: 0;\"> </h3>\n                <p><span class=\"label\">  :</span><span class=\"value\">@{utcNow()}</span></p>\n                <p><span class=\"label\">Logic App:</span><span class=\"value\">logic-dev-security-blog-automation</span></p>\n                <p><span class=\"label\"> ID:</span><span class=\"value\">@{workflow().run.name}</span></p>\n            </div>\n            \n            <div class=\"info-section\">\n                <h3 style=\"margin-top: 0;\"> </h3>\n                <p><span class=\"label\"> :</span><span class=\"value\">For_Each_RSS_Feed</span></p>\n                <p>  Azure Portal .</p>\n            </div>\n            \n            <div style=\"margin-top: 20px; padding: 15px; background: #e3f2fd; border-radius: 4px;\">\n                <h4 style=\"margin-top: 0;\">Azure Portal </h4>\n                <p>\n                    <a href=\"https://portal.azure.com/#@/resource/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Logic/workflows/logic-dev-security-blog-automation/runs/@{workflow().run.name}\" \n                       style=\"color: #1976d2; text-decoration: none;\">\n                         Azure Portal   \n                    </a>\n                </p>\n            </div>\n            \n            <div style=\"margin-top: 20px; padding: 15px; background: #fff3e0; border-radius: 4px;\">\n                <h4 style=\"margin-top: 0;\">  </h4>\n                <ul style=\"margin: 5px 0; padding-left: 20px;\">\n                    <li>RSS  URL    </li>\n                    <li>Function App (SummarizePost)  </li>\n                    <li>     </li>\n                </ul>\n            </div>\n        </div>\n        <div class=\"footer\">\n            Azure Security Blog Automation System<br>\n               .\n        </div>\n    </div>\n</body>\n</html>",
+            "Importance": "High",
+            "Subject": "[ ] Azure Security Blog Automation - RSS   ",
+            "To": "@parameters('emailRecipient')"
+          },
+          "host": {
+            "connection": {
+              "name": "@parameters('$connections')['office365']['connectionId']"
+            }
+          },
+          "method": "post",
+          "path": "/v2/Mail"
+        },
+        "runAfter": {
+          "For_Each_RSS_Feed": [
+            "Failed",
+            "TimedOut"
+          ]
+        },
+        "type": "ApiConnection"
+      }
+    },
+    "contentVersion": "1.0.0.0",
+    "outputs": {},
+    "parameters": {
+      "$connections": {
+        "defaultValue": {},
+        "type": "Object"
+      },
+      "emailRecipient": {
+        "defaultValue": "azure-mvp@zerobig.kr",
+        "type": "String"
+      },
+      "functionKey": {
+        "type": "SecureString"
+      },
+      "functionsAppUrl": {
+        "defaultValue": "https://func-dev-security-blog-automation.azurewebsites.net",
+        "type": "String"
+      },
+      "rssFeedUrls": {
+        "defaultValue": [
+          {
+            "sourceName": "??? Microsoft Security Blog",
+            "url": "https://www.microsoft.com/en-us/security/blog/feed/"
+          },
+          {
+            "sourceName": "?? Microsoft Defender Blog",
+            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog"
+          },
+          {
+            "sourceName": "?? Microsoft Sentinel Blog",
+            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog"
+          },
+          {
+            "sourceName": "?? Zero Trust Blog",
+            "url": "https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/"
+          },
+          {
+            "sourceName": "?? Identity & Access Blog",
+            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity"
+          }
+        ],
+        "type": "Array"
+      }
+    },
+    "triggers": {
+      "Recurrence": {
+        "evaluatedRecurrence": {
+          "frequency": "Day",
+          "interval": 1,
+          "schedule": {
+            "hours": [
+              7,
+              15,
+              22
+            ],
+            "minutes": [
+              0
+            ]
+          },
+          "timeZone": "Korea Standard Time"
+        },
+        "recurrence": {
+          "frequency": "Day",
+          "interval": 1,
+          "schedule": {
+            "hours": [
+              7,
+              15,
+              22
+            ],
+            "minutes": [
+              0
+            ]
+          },
+          "timeZone": "Korea Standard Time"
+        },
+        "type": "Recurrence"
+      }
+    }
+  },
+  "endpointsConfiguration": {
+    "connector": {
+      "outgoingIpAddresses": [
+        {
+          "address": "52.141.1.104"
+        },
+        {
+          "address": "52.141.36.214"
+        },
+        {
+          "address": "20.44.29.64/27"
+        },
+        {
+          "address": "52.231.18.208/28"
+        },
+        {
+          "address": "20.200.194.160/27"
+        },
+        {
+          "address": "20.200.194.192/28"
+        },
+        {
+          "address": "20.196.250.135"
+        },
+        {
+          "address": "20.196.249.145"
+        }
+      ]
+    },
+    "workflow": {
+      "accessEndpointIpAddresses": [
+        {
+          "address": "20.249.169.92"
+        },
+        {
+          "address": "20.249.169.87"
+        },
+        {
+          "address": "20.249.169.155"
+        },
+        {
+          "address": "20.249.171.205"
+        },
+        {
+          "address": "4.230.149.190"
+        },
+        {
+          "address": "20.249.170.248"
+        },
+        {
+          "address": "20.249.171.120"
+        },
+        {
+          "address": "20.249.171.7"
+        }
+      ],
+      "outgoingIpAddresses": [
+        {
+          "address": "20.200.202.75"
+        },
+        {
+          "address": "20.200.231.139"
+        },
+        {
+          "address": "20.249.169.25"
+        },
+        {
+          "address": "20.249.169.18"
+        },
+        {
+          "address": "20.249.169.147"
+        },
+        {
+          "address": "20.249.171.130"
+        },
+        {
+          "address": "4.230.149.189"
+        },
+        {
+          "address": "20.249.169.207"
+        },
+        {
+          "address": "20.249.171.17"
+        },
+        {
+          "address": "20.249.169.238"
+        }
+      ]
+    }
+  },
+  "id": "/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Logic/workflows/logic-dev-security-blog-automation",
+  "identity": {
+    "principalId": "<system-assigned-principal-id>",
+    "tenantId": "<your-tenant-id>",
+    "type": "SystemAssigned"
+  },
+  "location": "koreacentral",
+  "name": "logic-dev-security-blog-automation",
+  "parameters": {
+    "$connections": {
+      "value": {
+        "office365": {
+          "connectionId": "/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Web/connections/office365-dev-security-blog-automation",
+          "connectionName": "office365-dev-security-blog-automation",
+          "id": "/subscriptions/<your-subscription-id>/providers/Microsoft.Web/locations/koreacentral/managedApis/office365"
+        },
+        "rss": {
+          "connectionId": "/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Web/connections/rss",
+          "connectionName": "rss",
+          "id": "/subscriptions/<your-subscription-id>/providers/Microsoft.Web/locations/koreacentral/managedApis/rss"
+        }
+      }
+    },
+    "emailRecipient": {
+      "value": "azure-mvp@zerobig.kr"
+    },
+    "functionKey": {},
+    "functionsAppUrl": {
+      "value": "https://func-dev-security-blog-automation.azurewebsites.net"
+    },
+    "rssFeedUrls": {
+      "value": [
+        {
+          "sourceName": "??? Microsoft Security Blog",
+          "url": "https://www.microsoft.com/en-us/security/blog/feed/"
+        },
+        {
+          "sourceName": "?? Microsoft Defender Blog",
+          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog"
+        },
+        {
+          "sourceName": "?? Microsoft Sentinel Blog",
+          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog"
+        },
+        {
+          "sourceName": "?? Zero Trust Blog",
+          "url": "https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/"
+        },
+        {
+          "sourceName": "?? Identity & Access Blog",
+          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity"
+        }
+      ]
+    }
+  },
+  "provisioningState": "Succeeded",
+  "resourceGroup": "rg-security-blog-automation-dev",
+  "state": "Enabled",
+  "type": "Microsoft.Logic/workflows",
+  "version": "08584347717472150537"
+}
