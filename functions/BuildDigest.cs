@@ -313,7 +313,13 @@ public sealed class BuildDigest
         swTotal.Stop();
 
         var ok = req.CreateResponse(HttpStatusCode.OK);
-        await ok.WriteAsJsonAsync(new
+        ok.Headers.Add("Content-Type", "application/json; charset=utf-8");
+        var jsonOpts = new JsonSerializerOptions
+        {
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            WriteIndented = false
+        };
+        var responseBody = JsonSerializer.Serialize(new
         {
             subject,
             html,
@@ -329,7 +335,8 @@ public sealed class BuildDigest
                 displayPosts = displayPosts.Count,
                 elapsedMs = swTotal.ElapsedMilliseconds
             }
-        });
+        }, jsonOpts);
+        await ok.Body.WriteAsync(System.Text.Encoding.UTF8.GetBytes(responseBody));
         return ok;
     }
 
@@ -843,6 +850,7 @@ public sealed class BuildDigest
         sb.AppendLine("<html>");
         sb.AppendLine("<head>");
         sb.AppendLine("<meta charset=\"utf-8\">");
+        sb.AppendLine("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
         sb.AppendLine("<style>");
         sb.AppendLine("body { font-family: 'Segoe UI', Tahoma, sans-serif; line-height: 1.6; color: #222; max-width: 860px; margin: 0 auto; padding: 18px; background: #f4f6f8; }");
         sb.AppendLine(".container { background: #fff; border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); overflow: hidden; }");

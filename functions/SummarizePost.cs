@@ -60,7 +60,13 @@ public class SummarizePost
                 
                 var emptyResponse = req.CreateResponse(HttpStatusCode.OK);
                 emptyResponse.Headers.Add("Content-Type", "application/json; charset=utf-8");
-                await emptyResponse.WriteStringAsync(JsonSerializer.Serialize(emptySummary));
+                var emptyJsonOptions = new JsonSerializerOptions
+                {
+                    Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                    WriteIndented = false
+                };
+                var emptyJsonBytes = System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(emptySummary, emptyJsonOptions));
+                await emptyResponse.Body.WriteAsync(emptyJsonBytes, 0, emptyJsonBytes.Length);
                 return emptyResponse;
             }
 
@@ -69,10 +75,17 @@ public class SummarizePost
             // Call Azure OpenAI for summarization and translation
             var summary = await GenerateSummaryAndTranslation(data.Title, data.Content, cancellationToken);
 
-            // Return result
+            // Return result with explicit UTF-8 encoding
             var response = req.CreateResponse(HttpStatusCode.OK);
             response.Headers.Add("Content-Type", "application/json; charset=utf-8");
-            await response.WriteStringAsync(JsonSerializer.Serialize(summary));
+            var jsonOptions = new JsonSerializerOptions
+            {
+                // Prevent Unicode escaping so Korean characters are preserved as-is
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                WriteIndented = false
+            };
+            var jsonBytes = System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(summary, jsonOptions));
+            await response.Body.WriteAsync(jsonBytes, 0, jsonBytes.Length);
 
             return response;
         }

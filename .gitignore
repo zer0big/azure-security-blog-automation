@@ -69,6 +69,7 @@ deploy-*.ps1
 all-actions-*.json
 azure-*.json
 !infra/**/*.json
+infra/logic-app/definition-fixed.json
 deployed-*.json
 latest-*.json
 list-rss-*.json

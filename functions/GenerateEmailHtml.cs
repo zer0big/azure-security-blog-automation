@@ -162,6 +162,8 @@ public class GenerateEmailHtml
                 ? $"[Microsoft Azure 업데이트] 새 게시글 {actualNewPostsCount}개"
                 : "[Microsoft Azure 업데이트] 최근 게시글 요약 (신규 없음)";
             
+            // Ensure UTF-8 encoding in the response Content-Type
+            req.HttpContext.Response.ContentType = "application/json; charset=utf-8";
             return new OkObjectResult(new { html, subject });
         }
         catch (Exception ex)
@@ -182,6 +184,7 @@ public class GenerateEmailHtml
         sb.AppendLine("<html>");
         sb.AppendLine("<head>");
         sb.AppendLine("<meta charset=\"utf-8\">");
+        sb.AppendLine("<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">");
         sb.AppendLine("<style>");
         sb.AppendLine("body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; max-width: 800px; margin: 0 auto; padding: 20px; background: #f4f4f4; }");
         sb.AppendLine(".container { background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }");
