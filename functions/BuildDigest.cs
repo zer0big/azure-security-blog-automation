@@ -101,7 +101,7 @@ public sealed class BuildDigest
         var maxItems = input.MaxItems is > 0 ? Math.Min(input.MaxItems, 30) : 12;
         var newWindowHours = input.NewWindowHours is > 0 ? Math.Min(input.NewWindowHours, 168) : 24;
         var scheduleText = string.IsNullOrWhiteSpace(input.ScheduleText)
-            ? "매일 07:00, 15:00, 22:00 (KST)에 새로운 게시글을 확인합니다."
+            ? "매일 07:00, 19:00 (KST)에 새로운 게시글을 확인합니다."
             : input.ScheduleText!.Trim();
 
         var cutoff = DateTimeOffset.UtcNow.AddDays(-daysSince);

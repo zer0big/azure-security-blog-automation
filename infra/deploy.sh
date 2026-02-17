@@ -264,7 +264,7 @@ main() {
     echo -e "  2. Configure Logic App workflow:"
     echo -e "     - Import workflow from: ${CYAN}infra/logic-app/workflow-full.json${NC}"
     echo -e "     - Configure API connections (Office 365, RSS, HTTP)"
-    echo -e "     - Set recurrence schedule: ${CYAN}07:00, 15:00, 22:00 KST${NC}"
+    echo -e "     - Set recurrence schedule: ${CYAN}Security 07:00, 19:00 / Azure Cloud 08:00, 20:00 KST${NC}"
     echo ""
     echo -e "  3. Verify deployment:"
     echo -e "     - Check Application Insights for telemetry"

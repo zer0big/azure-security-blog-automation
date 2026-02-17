@@ -40,24 +40,32 @@
 ### 1. RSS 피드 병렬 수집
 
 ```csharp
-// 각 피드를 순차적으로 처리 (Logic App timeout 방지)
-foreach (var feed in input.RssFeedUrls)
+// 모든 피드를 병렬로 수집 (Task.WhenAll)
+var feedTasks = input.RssFeedUrls.Select(async feed =>
 {
     try
     {
         var items = await FetchFeedAsync(feed.Url!, cutoff, cancellationToken);
-        // FAIL 피드는 skip, OK 피드만 계속
+        return (feed, items, ok: true);
     }
     catch (Exception ex)
     {
         _logger.LogWarning(ex, "Feed fetch failed: {Url}", feed.Url);
-        feedStatuses.Add(/* FAIL 상태 */);
-        continue; // 다음 피드 계속 처리
+        return (feed, items: Array.Empty<Post>(), ok: false);
     }
+}).ToList();
+
+var results = await Task.WhenAll(feedTasks);
+
+foreach (var (feed, items, ok) in results)
+{
+    if (!ok) { feedStatuses.Add(/* FAIL 상태 */); continue; }
+    // OK 피드만 처리
 }
 ```
 
 **특징**:
+- 병렬 처리 (Task.WhenAll)로 7개 피드 ~40-60초 완료
 - FAIL 피드 자동 제외 (`continue`)
 - 각 피드 독립적 에러 처리
 - Retry 로직: 최대 2회, exponential backoff
@@ -230,7 +238,7 @@ sb.AppendLine("</ul>");
   "daysSince": 30,
   "maxItems": 12,
   "newWindowHours": 24,
-  "scheduleText": "매일 07:00, 15:00, 22:00 (KST)에 새로운 게시글을 확인합니다."
+  "scheduleText": "매일 07:00, 19:00 (KST)에 새로운 게시글을 확인합니다."
 }
 ```
 
@@ -276,7 +284,7 @@ sb.AppendLine("</ul>");
 | AOAI HTTP | 18초 | `AoaiHttp.Timeout` |
 | AOAI CancellationToken | 18초 | `cts.CancelAfter` |
 | RSS Retry | 2초, 4초 | Exponential backoff |
-| 전체 실행 시간 | 90-120초 | 웹 스크래핑 오버헤드 포함 |
+| 전체 실행 시간 | 40-60초 | 병렬 처리, 웹 스크래핑 오버헤드 포함 |
 
 ## 에러 처리 및 Fallback
 

@@ -134,7 +134,7 @@ public class GenerateEmailHtml
             }
 
             // Extract schedule information (optional parameter from Logic App)
-            string scheduleText = "매일 07:00, 15:00, 22:00 (KST)에 새로운 게시글을 확인합니다."; // default
+            string scheduleText = "매일 07:00, 19:00 (KST)에 새로운 게시글을 확인합니다."; // default
             if (root.TryGetProperty("scheduleText", out var st) || root.TryGetProperty("ScheduleText", out st))
             {
                 var val = st.GetString();

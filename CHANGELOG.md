@@ -2,6 +2,83 @@
 
 모든 주요 변경사항은 이 파일에 문서화됩니다.
 
+## [4.0.0] - 2026-02-17
+
+### 🎉 주요 변경사항
+- **Logic App Consumption Plan 전환**: Standard SKU에서 Consumption Plan으로 변경
+- **RSS 피드 전면 개편**: Security 5개 + Azure Cloud 7개 = 총 12개 피드
+- **스케줄 변경**: 일 3회 → 일 2회 (Security 07:00/19:00, Azure Cloud 08:00/20:00)
+- **BuildDigest 병렬화**: Task.WhenAll 기반 RSS 피드 병렬 수집으로 성능 대폭 개선
+
+### 🔄 변경사항
+
+#### RSS 피드 변경
+- **Security Workflow (5개 피드)**:
+  - 🛡️ Microsoft Security Blog (유지)
+  - 🔐 Microsoft Sentinel Blog (유지)
+  - 🛡️ Microsoft Defender Blog (**신규** - Threat Intelligence 대체)
+  - 🌐 Zero Trust Blog (유지)
+  - 🔑 Identity Blog (**신규** - Cybersecurity Insights 대체)
+
+- **Azure Cloud Workflow (7개 피드)** — 전면 개편:
+  - ☁️ Azure Blog (**신규**)
+  - 🔧 Azure DevOps Blog (유지)
+  - 📊 Fabric Blog (**신규** - Azure Architecture 대체)
+  - 🏗️ Azure Infrastructure Blog (유지)
+  - 🔨 Microsoft 365 Dev Blog (**신규** - DevOps Community 대체)
+  - ⚡ Power Platform Blog (**신규** - Integration Services 대체)
+  - 🤖 Azure AI Foundry Blog (**신규**)
+
+#### 스케줄 변경
+- Security: 07:00, 15:00, 22:00 → **07:00, 19:00** KST (일 2회)
+- Azure Cloud: 08:00, 16:00, 23:00 → **08:00, 20:00** KST (일 2회)
+- 총 이메일: 일 6회 → **일 4회**
+
+#### 코드 개선
+- `BuildDigest.cs`: RSS 피드 수집을 `Task.WhenAll` 병렬 처리로 전환
+  - 이전: 순차 처리 (foreach) → 7개 피드 ~170초 소요
+  - 현재: 병렬 처리 (Task.WhenAll) → 7개 피드 ~40-60초 소요
+- `host.json`: `functionTimeout` 10분으로 설정 ("00:10:00")
+
+#### 인프라 변경
+- Logic App: Standard (WS1) → Consumption Plan
+- Logic App 정의: 직접 Azure 배포 후 workflow JSON 동기화
+- `dev.bicepparam`: `logicAppAzureCloudName` 파라미터 추가
+
+### 🐛 버그 수정
+
+#### Logic App Consumption Plan 120초 HTTP Timeout
+- **문제**: Azure Cloud LA의 7개 피드 순차 처리 시 ~170초 소요 → 120초 hard limit 초과
+- **원인**: Consumption Plan HTTP 액션의 120초 제한
+- **해결**: BuildDigest.cs에서 Task.WhenAll 기반 병렬 피드 수집으로 전환
+
+#### Azure Cloud LA 피드 정의 불일치
+- **문제**: Azure Cloud LA definition에 Security 피드가 default로 설정됨
+- **해결**: 정확한 7개 Azure Cloud 피드로 default 수정
+
+#### scheduleText 런타임 파라미터 불일치
+- **문제**: 양쪽 LA 모두 "3x/day" 텍스트가 이메일에 표시
+- **해결**: Security "07:00, 19:00", Azure Cloud "08:00, 20:00"으로 런타임 파라미터 수정
+
+### 📊 테스트 결과
+- ✅ Security Logic App: Succeeded (07:00, 19:00 실행 확인)
+- ✅ Azure Cloud Logic App: Succeeded (08:00, 20:00 실행 확인)
+- ✅ BuildDigest 병렬 처리: 7개 피드 ~50초 완료
+- ✅ 이메일 발송: 한국어 인사이트, 첫 문단 정상 표시
+- ✅ 최근 24시간 에러: 0건
+
+### 📚 문서 업데이트
+- README.md: 피드 목록, 스케줄, Logic App 타입 현행화
+- CHANGELOG.md: v4.0.0 상세 변경사항 추가
+- docs/아키텍처.md: 전체 현행화
+- docs/Logic-App-워크플로우.md: 전체 현행화
+- docs/BuildDigest-API.md: 병렬 처리 코드 반영
+- docs/STEP-BY-STEP-DEPLOYMENT-GUIDE.md: 현행화
+- workflow.json, workflow-azure-cloud.json: 배포 상태와 동기화
+- config/rss-feeds-config.json: 스케줄 2x/day 반영
+
+---
+
 ## [3.0.0] - 2026-01-14
 
 ### 🎉 주요 변경사항

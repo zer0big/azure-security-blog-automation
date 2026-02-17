@@ -198,7 +198,7 @@ try {
     Write-Host "`n  2. Configure Logic App workflow:" -ForegroundColor White
     Write-Host "     - Import workflow from: infra/logic-app/workflow-full.json" -ForegroundColor Gray
     Write-Host "     - Configure API connections (Office 365, RSS, HTTP)" -ForegroundColor Gray
-    Write-Host "     - Set recurrence schedule: 07:00, 15:00, 22:00 KST" -ForegroundColor Gray
+    Write-Host "     - Set recurrence schedule: Security 07:00, 19:00 KST / Azure Cloud 08:00, 20:00 KST" -ForegroundColor Gray
     Write-Host "`n  3. Verify deployment:" -ForegroundColor White
     Write-Host "     - Check Application Insights for telemetry" -ForegroundColor Gray
     Write-Host "     - Test Function endpoints" -ForegroundColor Gray

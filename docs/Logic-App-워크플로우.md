@@ -2,7 +2,7 @@
 
 ## 개요
 
-이 문서는 **Azure Security Blog Automation** 솔루션의 핵심인 **듀얼 Logic App (Standard) 워크플로우**에 대한 상세 분석을 제공합니다. 
+이 문서는 **Azure Security Blog Automation** 솔루션의 핵심인 **듀얼 Logic App (Consumption) 워크플로우**에 대한 상세 분석을 제공합니다. 
 
 ### 듀얼 워크플로우 아키텍처
 
@@ -11,19 +11,20 @@
 1. **Security Workflow** (5개 피드)
    - Microsoft Security Blog 🛡️
    - Microsoft Sentinel Blog 🔐
+   - Microsoft Defender Blog 🛡️
    - Zero Trust Blog 🌐
-   - Threat Intelligence 🎯
-   - Cybersecurity Insights 💡
-   - 스케줄: 07:00, 15:00, 22:00 KST
+   - Identity Blog 🔑
+   - 스케줄: 07:00, 19:00 KST
 
-2. **Azure/Cloud Workflow** (6개 피드)
+2. **Azure/Cloud Workflow** (7개 피드)
+   - Azure Blog ☁️
    - Azure DevOps Blog 🔧
-   - Azure Architecture Blog 📊
+   - Fabric Blog 📊
    - Azure Infrastructure Blog 🏗️
-   - Azure Governance and Management Blog 🏢
-   - Azure DevOps Community 🔨
-   - Azure Integration Services Blog ⚡
-   - 스케줄: 08:00, 16:00, 23:00 KST
+   - Microsoft 365 Dev Blog 🔨
+   - Power Platform Blog ⚡
+   - Azure AI Foundry Blog 🤖
+   - 스케줄: 08:00, 20:00 KST
 
 각 워크플로우는 RSS 피드를 가져와 새로운 게시글을 감지하고, AI로 요약을 생성하며, 형식이 지정된 이메일 알림을 발송합니다.
 
@@ -31,7 +32,7 @@
 
 ```mermaid
 graph TB
-    A["Recurrence Trigger\nSecurity: 07:00, 15:00, 22:00\nAzure Cloud: 08:00, 16:00, 23:00"] --> B[Initialize CurrentDateTime]
+    A["Recurrence Trigger\nSecurity: 07:00, 19:00\nAzure Cloud: 08:00, 20:00"] --> B[Initialize CurrentDateTime]
     B --> C[Initialize AllPosts Array]
     C --> D[For Each RSS Feed in rssFeedUrls]
     
@@ -75,19 +76,19 @@ graph TB
 **구성**:
 
 #### Security Workflow
-- **빈도**: Hour (매시간)
+- **빈도**: Day (매일)
 - **간격**: 1
 - **시간대**: (UTC+09:00) Seoul
-- **이 시간에**: 7, 15, 22 (07:00, 15:00, 22:00에만 실행)
+- **이 시간에**: 7, 19 (07:00, 19:00에만 실행)
 
 #### Azure/Cloud Workflow
-- **빈도**: Hour (매시간)
+- **빈도**: Day (매일)
 - **간격**: 1
 - **시간대**: (UTC+09:00) Seoul
-- **이 시간에**: 8, 16, 23 (08:00, 16:00, 23:00에만 실행)
+- **이 시간에**: 8, 20 (08:00, 20:00에만 실행)
 
 **동작**:
-- 각 Logic App은 매일 3번 실행됩니다 (총 6회 이메일 발송).
+- 각 Logic App은 매일 2번 실행됩니다 (총 4회 이메일 발송).
 - 각 실행은 독립적이며 이전 실행의 상태에 영향을 받지 않습니다.
 
 **커스터마이징**:
@@ -165,39 +166,47 @@ graph TB
 - **URL**: `https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/`
 - **내용**: Zero Trust 아키텍처, ID 보안, 조건부 액세스
 
-##### 피드 4: 🎯 Threat Intelligence
-- **URL**: `https://www.microsoft.com/en-us/security/blog/topic/threat-intelligence/feed/`
-- **내용**: 위협 분석, APT 그룹, 익스플로잇
+##### 피드 3: 🛡️ Microsoft Defender Blog
+- **URL**: `https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog`
+- **내용**: Microsoft Defender 업데이트, 엔드포인트 보호
 
-##### 피드 5: 💡 Cybersecurity Insights
-- **URL**: `https://www.microsoft.com/en-us/security/blog/topic/cybersecurity/feed/`
-- **내용**: 사이버 보안 트렌드, 위협 환경, 방어 전략
+##### 피드 4: 🌐 Zero Trust Blog
+- **URL**: `https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/`
+- **내용**: Zero Trust 아키텍쳄, ID 보안, 조건부 액세스
 
-#### Azure/Cloud Workflow (6개 피드)
+##### 피드 5: 🔑 Identity Blog
+- **URL**: `https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity`
+- **내용**: ID 보안, Entra ID, 인증/인가
 
-##### 피드 6: 🔧 Azure DevOps Blog
+#### Azure/Cloud Workflow (7개 피드)
+
+##### 피드 6: ☁️ Azure Blog
+- **URL**: `https://azure.microsoft.com/en-us/blog/feed/`
+- **내용**: Azure 전반 업데이트, 신규 서비스
+
+##### 피드 7: 🔧 Azure DevOps Blog
 - **URL**: `https://devblogs.microsoft.com/devops/feed/`
 - **내용**: Azure DevOps, CI/CD, GitHub Actions, 파이프라인
 
-##### 피드 7: 📊 Azure Architecture Blog
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureArchitectureBlog`
-- **내용**: Azure 아키텍처 패턴, Well-Architected Framework
+##### 피드 8: 📊 Fabric Blog
+- **URL**: `https://blog.fabric.microsoft.com/en-us/blog/feed/`
+- **내용**: Fabric, 데이터 통합, Analytics
 
-##### 피드 8: 🏗️ Azure Infrastructure Blog
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureInfrastructureBlog`
+##### 피드 9: 🏗️ Azure Infrastructure Blog
+- **URL**: `https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=AzureInfrastructureBlog`
 - **내용**: 네트워킹, 컴퓨팅, 스토리지 인프라
 
-##### 피드 9: 🏢 Azure Governance and Management Blog
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureGovernanceandManagementBlog`
-- **내용**: 거버넌스, Policy, Cost Management
+##### 피드 10: 🔨 Microsoft 365 Dev Blog
+- **URL**: `https://devblogs.microsoft.com/microsoft365dev/feed/`
+- **내용**: M365 개발, Graph API, Teams 앱 개발
 
-##### 피드 10: 🔨 Azure DevOps Community
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=AzureDevOpsBlog`
-- **내용**: 커뮤니티 베스트 프랙티스, 사용 사례
+##### 피드 11: ⚡ Power Platform Blog
+- **URL**: `https://cloudblogs.microsoft.com/powerplatform/feed/`
+- **내용**: Power Apps, Power Automate, Power BI
 
-##### 피드 11: ⚡ Azure Integration Services Blog
-- **URL**: `https://techcommunity.microsoft.com/plugins/custom/microsoft/o365/custom-blog-rss?board=IntegrationsonAzureBlog`
-- **내용**: Logic Apps, API Management, Event Grid
+##### 피드 12: 🤖 Azure AI Foundry Blog
+- **URL**: `https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=azure-ai-foundry-blog`
+- **내용**: Azure AI, 모델 배포, AI 서비스
 
 > **참고**: 피드는 `rssFeedUrls` 파라미터 배열에서 동적으로 읽어옵니다. For Each 루프가 모든 피드를 자동으로 순회합니다.
 
@@ -470,7 +479,7 @@ graph TB
 <body>
   <h2>Microsoft Azure Security Updates</h2>
   <p>2024년 1월 15일 07:00 기준, 새로운 게시글이 없습니다.</p>
-  <p>다음 업데이트: 15:00</p>
+  <p>다음 업데이트: 19:00</p>
 </body>
 </html>
 ```
@@ -1101,7 +1110,7 @@ The execution of workflow exceeded the maximum allowed time of 90 seconds.
    az appserviceplan update \
      --name plan-dev-security-blog-automation \
      --resource-group rg-security-blog-automation-dev \
-     --sku WS1  # Workflow Standard 1
+     --sku Y1  # Consumption Plan
    ```
 
 ## 고급 시나리오
@@ -1214,7 +1223,7 @@ The execution of workflow exceeded the maximum allowed time of 90 seconds.
 ## 참조
 
 ### Logic Apps 문서
-- [Logic Apps (Standard) 개요](https://learn.microsoft.com/ko-kr/azure/logic-apps/single-tenant-overview-compare)
+- [Logic Apps (Consumption) 개요](https://learn.microsoft.com/ko-kr/azure/logic-apps/logic-apps-overview)
 - [워크플로우 정의 언어](https://learn.microsoft.com/ko-kr/azure/logic-apps/logic-apps-workflow-definition-language)
 - [커넥터 참조](https://learn.microsoft.com/ko-kr/connectors/connector-reference/)
 
