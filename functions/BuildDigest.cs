@@ -128,58 +128,64 @@ public sealed class BuildDigest
         var feedStatuses = new List<FeedStatus>();
         var allItems = new List<Post>();
 
-        // Fetch feeds sequentially with per-feed time budget. This avoids Logic App hangs.
-        foreach (var feed in input.RssFeedUrls)
+        // Fetch all feeds in parallel to stay under Logic App Consumption Plan's 120-second HTTP limit.
+        var validFeeds = input.RssFeedUrls.Where(f => !string.IsNullOrWhiteSpace(f?.Url)).ToList();
+        var feedTasks = validFeeds.Select(async feed =>
         {
-            if (string.IsNullOrWhiteSpace(feed?.Url))
-                continue;
-
             var sw = Stopwatch.StartNew();
             try
             {
                 var items = await FetchFeedAsync(feed.Url!, cutoff, cancellationToken);
-                foreach (var it in items)
+                var posts = items.Select(it => new Post
                 {
-                    allItems.Add(new Post
-                    {
-                        Title = it.Title,
-                        Link = it.Link,
-                        Summary = it.Summary,
-                        PublishDate = it.PublishDate,
-                        FirstParagraph = it.FirstParagraph,
-                        SourceName = string.IsNullOrWhiteSpace(feed.SourceName) ? "Unknown" : feed.SourceName!,
-                        Emoji = feed.Emoji
-                    });
-                }
+                    Title = it.Title,
+                    Link = it.Link,
+                    Summary = it.Summary,
+                    PublishDate = it.PublishDate,
+                    FirstParagraph = it.FirstParagraph,
+                    SourceName = string.IsNullOrWhiteSpace(feed.SourceName) ? "Unknown" : feed.SourceName!,
+                    Emoji = feed.Emoji
+                }).ToList();
 
                 var items24h = items.Count(p => p.PublishDateParsed >= newCutoff);
 
-                feedStatuses.Add(new FeedStatus
-                {
-                    SourceName = feed.SourceName ?? "Unknown",
-                    Url = feed.Url!,
-                    Ok = true,
-                    Items = items.Count,
-                    Items24h = items24h,
-                    ElapsedMs = sw.ElapsedMilliseconds
-                });
+                return (
+                    Posts: posts,
+                    Status: new FeedStatus
+                    {
+                        SourceName = feed.SourceName ?? "Unknown",
+                        Url = feed.Url!,
+                        Ok = true,
+                        Items = items.Count,
+                        Items24h = items24h,
+                        ElapsedMs = sw.ElapsedMilliseconds
+                    }
+                );
             }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Feed fetch failed: {Url}", feed.Url);
-                feedStatuses.Add(new FeedStatus
-                {
-                    SourceName = feed.SourceName ?? "Unknown",
-                    Url = feed.Url!,
-                    Ok = false,
-                    Items = 0,
-                    Items24h = 0,
-                    Error = ex.Message,
-                    ElapsedMs = sw.ElapsedMilliseconds
-                });
-                // Skip FAIL feeds - don't add their items to allItems
-                continue;
+                return (
+                    Posts: new List<Post>(),
+                    Status: new FeedStatus
+                    {
+                        SourceName = feed.SourceName ?? "Unknown",
+                        Url = feed.Url!,
+                        Ok = false,
+                        Items = 0,
+                        Items24h = 0,
+                        Error = ex.Message,
+                        ElapsedMs = sw.ElapsedMilliseconds
+                    }
+                );
             }
+        }).ToList();
+
+        var feedResults = await Task.WhenAll(feedTasks);
+        foreach (var result in feedResults)
+        {
+            feedStatuses.Add(result.Status);
+            allItems.AddRange(result.Posts);
         }
 
         // Dedup within this run by Link
