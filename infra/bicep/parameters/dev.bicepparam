@@ -8,6 +8,7 @@ param location = 'koreacentral'
 param storageAccountName = 'stdevsecurityblog'
 param functionAppName = 'func-dev-security-blog-automation'
 param logicAppName = 'logic-dev-security-blog-automation'
+param logicAppAzureCloudName = 'logic-dev-azure-cloud-blog-automation'
 param appInsightsName = 'appi-dev-security-blog-automation'
 param workspaceName = 'log-dev-security-blog-automation'
 

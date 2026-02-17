@@ -104,14 +104,14 @@
   ],
   "schedules": {
     "security": {
-      "hours": [7, 15, 22],
+      "hours": [7, 19],
       "timezone": "Korea Standard Time",
-      "description": "Every day at 07:00, 15:00, 22:00 (KST)"
+      "description": "Every day at 07:00, 19:00 (KST)"
     },
     "azureCloud": {
-      "hours": [8, 16, 23],
+      "hours": [8, 20],
       "timezone": "Korea Standard Time",
-      "description": "Every day at 08:00, 16:00, 23:00 (KST)"
+      "description": "Every day at 08:00, 20:00 (KST)"
     }
   },
   "commonSettings": {

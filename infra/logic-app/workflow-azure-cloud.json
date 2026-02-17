@@ -1,351 +1,180 @@
 {
-  "accessControl": null,
-  "accessEndpoint": "https://prod-31.koreacentral.logic.azure.com:443/workflows/5fba9db657bf4a63b2f4c79ef1175b00",
-  "changedTime": "2026-02-16T03:54:53.954342+00:00",
-  "createdTime": "2025-12-20T12:57:23.981333+00:00",
-  "definition": {
-    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
-    "actions": {
-      "Build_Digest": {
-        "inputs": {
-          "body": {
-            "daysSince": 30,
-            "maxItems": 12,
-            "rssFeedUrls": "@parameters('rssFeedUrls')",
-            "scheduleText": "@parameters('scheduleText')"
-          },
-          "headers": {
-            "Content-Type": "application/json; charset=utf-8"
-          },
-          "method": "POST",
-          "retryPolicy": {
-            "count": 2,
-            "interval": "PT5S",
-            "maximumInterval": "PT1M",
-            "minimumInterval": "PT5S",
-            "type": "exponential"
-          },
-          "timeout": "PT3M",
-          "uri": "@{parameters('functionsAppUrl')}/api/BuildDigest?code=@{parameters('functionKey')}"
+  "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+  "actions": {
+    "Build_Digest": {
+      "inputs": {
+        "body": {
+          "daysSince": 30,
+          "maxItems": 12,
+          "rssFeedUrls": "@parameters('rssFeedUrls')",
+          "scheduleText": "@parameters('scheduleText')"
         },
-        "runAfter": {},
-        "type": "Http"
+        "headers": {
+          "Content-Type": "application/json; charset=utf-8"
+        },
+        "method": "POST",
+        "retryPolicy": {
+          "count": 2,
+          "interval": "PT5S",
+          "maximumInterval": "PT1M",
+          "minimumInterval": "PT5S",
+          "type": "exponential"
+        },
+        "timeout": "PT10M",
+        "uri": "@{parameters('functionsAppUrl')}/api/BuildDigest?code=@{parameters('functionKey')}"
       },
-      "Send_Consolidated_Email": {
-        "inputs": {
-          "body": {
-            "Body": "@{body('Build_Digest').html}",
-            "Importance": "Normal",
-            "IsHtml": true,
-            "Subject": "@{body('Build_Digest').subject}",
-            "To": "@parameters('emailRecipient')"
-          },
-          "host": {
-            "connection": {
-              "name": "@parameters('$connections')['office365']['connectionId']"
-            }
-          },
-          "method": "post",
-          "path": "/v2/Mail",
-          "retryPolicy": {
-            "count": 3,
-            "interval": "PT5S",
-            "maximumInterval": "PT1H",
-            "minimumInterval": "PT5S",
-            "type": "exponential"
+      "runAfter": {},
+      "type": "Http"
+    },
+    "Send_Consolidated_Email": {
+      "inputs": {
+        "body": {
+          "Body": "@{body('Build_Digest').html}",
+          "Importance": "Normal",
+          "IsHtml": true,
+          "Subject": "@{body('Build_Digest').subject}",
+          "To": "@parameters('emailRecipient')"
+        },
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['office365']['connectionId']"
           }
         },
-        "runAfter": {
-          "Build_Digest": [
-            "Succeeded"
-          ]
-        },
-        "trackedProperties": {
-          "emailSentTime": "@utcNow()",
-          "recipient": "@parameters('emailRecipient')"
-        },
-        "type": "ApiConnection"
+        "method": "post",
+        "path": "/v2/Mail",
+        "retryPolicy": {
+          "count": 3,
+          "interval": "PT5S",
+          "maximumInterval": "PT1H",
+          "minimumInterval": "PT5S",
+          "type": "exponential"
+        }
       },
-      "Send_Error_Notification": {
-        "inputs": {
-          "body": {
-            "Body": "<html><head><meta charset='utf-8'><meta http-equiv='Content-Type' content='text/html; charset=utf-8'><style>body{font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:linear-gradient(135deg,#d32f2f 0%,#f44336 100%);color:white;padding:20px;border-radius:8px 8px 0 0}.header h1{margin:0;font-size:24px}.content{background:#fff;padding:20px;border:1px solid #ddd;border-top:none}.error-box{background:#ffebee;border-left:4px solid #d32f2f;padding:15px;margin:15px 0;border-radius:4px}.info-section{background:#f5f5f5;padding:15px;margin:15px 0;border-radius:4px}.label{font-weight:bold;color:#666}.value{color:#333;margin-left:10px}.footer{background:#f5f5f5;padding:15px;text-align:center;font-size:12px;color:#666;border-radius:0 0 8px 8px}</style></head><body><div class='container'><div class='header'><h1>&#9888;&#65039; Build Digest &#50724;&#47448; &#48156;&#49373; / Error Occurred</h1></div><div class='content'><div class='error-box'><h3 style='margin-top:0;color:#d32f2f'>&#50724;&#47448; &#48156;&#49373; (Error Occurred)</h3><p>Azure Security Blog Automation&#51032; Build Digest &#45800;&#44228;&#50640;&#49436; &#50724;&#47448;&#44032; &#48156;&#49373;&#54664;&#49845;&#45768;&#45796;.</p><p>An error occurred during the Build Digest step of Azure Security Blog Automation.</p></div><div class='info-section'><h3 style='margin-top:0'>&#49892;&#54665; &#51221;&#48372; (Execution Info)</h3><p><span class='label'>&#48156;&#49373; &#49884;&#44033; (Time):</span> <span class='value'>@{utcNow()}</span></p><p><span class='label'>Logic App:</span> <span class='value'>logic-dev-security-blog-automation</span></p><p><span class='label'>&#49892;&#54665; ID (Run ID):</span> <span class='value'>@{workflow().run.name}</span></p></div><div class='info-section'><h3 style='margin-top:0'>&#50724;&#47448; &#50948;&#52824; (Error Location)</h3><p><span class='label'>&#45800;&#44228; (Step):</span> <span class='value'>Build_Digest</span></p><p>&#51088;&#49464;&#54620; &#45236;&#50857;&#51008; Azure Portal&#50640;&#49436; &#54869;&#51064;&#54616;&#49464;&#50836;.</p><p>Please check Azure Portal for detailed error information.</p></div><div style='margin-top:20px;padding:15px;background:#e3f2fd;border-radius:4px'><h4 style='margin-top:0'>Azure Portal &#54869;&#51064; (Check Portal)</h4><p><a href='https://portal.azure.com/#@/resource/subscriptions/3864b016-4594-40ad-a96b-4a08ac96b537/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Logic/workflows/logic-dev-security-blog-automation/runs/@{workflow().run.name}' style='color:#1976d2;text-decoration:none'>&#9654; Azure Portal&#50640;&#49436; &#49892;&#54665; &#44592;&#47197; &#54869;&#51064; (View Run History in Azure Portal)</a></p></div><div style='margin-top:20px;padding:15px;background:#fff3e0;border-radius:4px'><h4 style='margin-top:0'>&#54869;&#51064; &#49324;&#54637; (Troubleshooting Checklist)</h4><ul style='margin:5px 0;padding-left:20px'><li>Function App &#46041;&#51089; &#49345;&#53468; &#54869;&#51064; (Check Function App status)</li><li>Azure OpenAI &#50672;&#44208; &#54869;&#51064; (Check Azure OpenAI connection)</li><li>Table Storage &#50672;&#44208; &#54869;&#51064; (Check Table Storage connection)</li><li>RSS &#54588;&#46300; URL &#51217;&#44540; &#44032;&#45733; &#50668;&#48512; (Check RSS feed URL accessibility)</li><li>Function App &#47196;&#44536; &#54869;&#51064; (Check Function App logs)</li></ul></div></div><div class='footer'>Azure Security Blog Automation System<br>&#51060; &#47700;&#51068;&#51008; &#51088;&#46041;&#51004;&#47196; &#48156;&#49569;&#46104;&#50632;&#49845;&#45768;&#45796;. (This is an auto-generated notification email.)</div></div></body></html>",
-            "Importance": "High",
-            "IsHtml": true,
-            "Subject": "[&#50724;&#47448;/Error] Azure Security Blog Automation - Build Digest &#49892;&#54056; (Build Digest Failed)",
-            "To": "@parameters('emailRecipient')"
-          },
-          "host": {
-            "connection": {
-              "name": "@parameters('$connections')['office365']['connectionId']"
-            }
-          },
-          "method": "post",
-          "path": "/v2/Mail"
-        },
-        "runAfter": {
-          "Build_Digest": [
-            "Failed",
-            "TimedOut"
-          ]
-        },
-        "type": "ApiConnection"
-      }
+      "runAfter": {
+        "Build_Digest": [
+          "Succeeded"
+        ]
+      },
+      "trackedProperties": {
+        "emailSentTime": "@utcNow()",
+        "recipient": "@parameters('emailRecipient')"
+      },
+      "type": "ApiConnection"
     },
-    "contentVersion": "1.0.0.0",
-    "outputs": {},
-    "parameters": {
-      "$connections": {
-        "defaultValue": {},
-        "type": "Object"
-      },
-      "emailRecipient": {
-        "defaultValue": "azure-mvp@zerobig.kr",
-        "type": "String"
-      },
-      "functionKey": {
-        "type": "String"
-      },
-      "functionsAppUrl": {
-        "defaultValue": "https://func-dev-security-blog-automation.azurewebsites.net",
-        "type": "String"
-      },
-      "rssFeedUrls": {
-        "defaultValue": [
-          {
-            "emoji": "&#128737;&#65039;",
-            "sourceName": "Microsoft Security Blog",
-            "url": "https://www.microsoft.com/en-us/security/blog/feed/"
-          },
-          {
-            "emoji": "&#128272;",
-            "sourceName": "Microsoft Sentinel Blog",
-            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog"
-          },
-          {
-            "emoji": "&#128737;&#65039;",
-            "sourceName": "Microsoft Defender Blog",
-            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog"
-          },
-          {
-            "emoji": "&#127760;",
-            "sourceName": "Zero Trust Blog",
-            "url": "https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/"
-          },
-          {
-            "emoji": "&#128273;",
-            "sourceName": "Identity Blog",
-            "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity"
+    "Send_Error_Notification": {
+      "inputs": {
+        "body": {
+          "Body": "<html><head><meta charset='utf-8'><meta http-equiv='Content-Type' content='text/html; charset=utf-8'><style>body{font-family:'Segoe UI',Arial,sans-serif;line-height:1.6;color:#333}.container{max-width:600px;margin:0 auto;padding:20px}.header{background:linear-gradient(135deg,#d32f2f 0%,#f44336 100%);color:white;padding:20px;border-radius:8px 8px 0 0}.header h1{margin:0;font-size:24px}.content{background:#fff;padding:20px;border:1px solid #ddd;border-top:none}.error-box{background:#ffebee;border-left:4px solid #d32f2f;padding:15px;margin:15px 0;border-radius:4px}.info-section{background:#f5f5f5;padding:15px;margin:15px 0;border-radius:4px}.label{font-weight:bold;color:#666}.value{color:#333;margin-left:10px}.footer{background:#f5f5f5;padding:15px;text-align:center;font-size:12px;color:#666;border-radius:0 0 8px 8px}</style></head><body><div class='container'><div class='header'><h1>&#9888;&#65039; Build Digest &#50724;&#47448; &#48156;&#49373; / Error Occurred</h1></div><div class='content'><div class='error-box'><h3 style='margin-top:0;color:#d32f2f'>&#50724;&#47448; &#48156;&#49373; (Error Occurred)</h3><p>Azure Security Blog Automation&#51032; Build Digest &#45800;&#44228;&#50640;&#49436; &#50724;&#47448;&#44032; &#48156;&#49373;&#54664;&#49845;&#45768;&#45796;.</p><p>An error occurred during the Build Digest step of Azure Security Blog Automation.</p></div><div class='info-section'><h3 style='margin-top:0'>&#49892;&#54665; &#51221;&#48372; (Execution Info)</h3><p><span class='label'>&#48156;&#49373; &#49884;&#44033; (Time):</span> <span class='value'>@{utcNow()}</span></p><p><span class='label'>Logic App:</span> <span class='value'>logic-dev-azure-cloud-blog-automation</span></p><p><span class='label'>&#49892;&#54665; ID (Run ID):</span> <span class='value'>@{workflow().run.name}</span></p></div><div class='info-section'><h3 style='margin-top:0'>&#50724;&#47448; &#50948;&#52824; (Error Location)</h3><p><span class='label'>&#45800;&#44228; (Step):</span> <span class='value'>Build_Digest</span></p><p>&#51088;&#49464;&#54620; &#45236;&#50857;&#51008; Azure Portal&#50640;&#49436; &#54869;&#51064;&#54616;&#49464;&#50836;.</p><p>Please check Azure Portal for detailed error information.</p></div><div style='margin-top:20px;padding:15px;background:#e3f2fd;border-radius:4px'><h4 style='margin-top:0'>Azure Portal &#54869;&#51064; (Check Portal)</h4><p><a href='https://portal.azure.com/#@/resource/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Logic/workflows/logic-dev-azure-cloud-blog-automation/runs/@{workflow().run.name}' style='color:#1976d2;text-decoration:none'>&#9654; Azure Portal&#50640;&#49436; &#49892;&#54665; &#44592;&#47197; &#54869;&#51064; (View Run History in Azure Portal)</a></p></div><div style='margin-top:20px;padding:15px;background:#fff3e0;border-radius:4px'><h4 style='margin-top:0'>&#54869;&#51064; &#49324;&#54637; (Troubleshooting Checklist)</h4><ul style='margin:5px 0;padding-left:20px'><li>Function App &#46041;&#51089; &#49345;&#53468; &#54869;&#51064; (Check Function App status)</li><li>Azure OpenAI &#50672;&#44208; &#54869;&#51064; (Check Azure OpenAI connection)</li><li>Table Storage &#50672;&#44208; &#54869;&#51064; (Check Table Storage connection)</li><li>RSS &#54588;&#46300; URL &#51217;&#44540; &#44032;&#45733; &#50668;&#48512; (Check RSS feed URL accessibility)</li><li>Function App &#47196;&#44536; &#54869;&#51064; (Check Function App logs)</li></ul></div></div><div class='footer'>Azure Security Blog Automation System<br>&#51060; &#47700;&#51068;&#51008; &#51088;&#46041;&#51004;&#47196; &#48156;&#49569;&#46104;&#50632;&#49845;&#45768;&#45796;. (This is an auto-generated notification email.)</div></div></body></html>",
+          "Importance": "High",
+          "IsHtml": true,
+          "Subject": "[&#50724;&#47448;/Error] Azure Security Blog Automation - Build Digest &#49892;&#54056; (Build Digest Failed)",
+          "To": "@parameters('emailRecipient')"
+        },
+        "host": {
+          "connection": {
+            "name": "@parameters('$connections')['office365']['connectionId']"
           }
-        ],
-        "type": "Array"
+        },
+        "method": "post",
+        "path": "/v2/Mail"
       },
-      "scheduleText": {
-        "defaultValue": "Every day at 07:00, 15:00, 22:00 (KST)",
-        "type": "String"
-      }
-    },
-    "triggers": {
-      "Recurrence": {
-        "evaluatedRecurrence": {
-          "frequency": "Day",
-          "interval": 1,
-          "schedule": {
-            "hours": [
-              7,
-              19
-            ]
-          },
-          "timeZone": "Korea Standard Time"
-        },
-        "recurrence": {
-          "frequency": "Day",
-          "interval": 1,
-          "schedule": {
-            "hours": [
-              7,
-              19
-            ]
-          },
-          "timeZone": "Korea Standard Time"
-        },
-        "type": "Recurrence"
-      }
+      "runAfter": {
+        "Build_Digest": [
+          "Failed",
+          "TimedOut"
+        ]
+      },
+      "type": "ApiConnection"
     }
   },
-  "endpointsConfiguration": {
-    "connector": {
-      "accessEndpointIpAddresses": null,
-      "outgoingIpAddresses": [
-        {
-          "address": "52.141.1.104"
-        },
-        {
-          "address": "52.141.36.214"
-        },
-        {
-          "address": "20.44.29.64/27"
-        },
-        {
-          "address": "52.231.18.208/28"
-        },
-        {
-          "address": "20.200.194.160/27"
-        },
-        {
-          "address": "20.200.194.192/28"
-        },
-        {
-          "address": "20.196.250.135"
-        },
-        {
-          "address": "20.196.249.145"
-        }
-      ]
-    },
-    "workflow": {
-      "accessEndpointIpAddresses": [
-        {
-          "address": "20.249.169.92"
-        },
-        {
-          "address": "20.249.169.87"
-        },
-        {
-          "address": "20.249.169.155"
-        },
-        {
-          "address": "20.249.171.205"
-        },
-        {
-          "address": "4.230.149.190"
-        },
-        {
-          "address": "20.249.170.248"
-        },
-        {
-          "address": "20.249.171.120"
-        },
-        {
-          "address": "20.249.171.7"
-        }
-      ],
-      "outgoingIpAddresses": [
-        {
-          "address": "20.200.202.75"
-        },
-        {
-          "address": "20.200.231.139"
-        },
-        {
-          "address": "20.249.169.25"
-        },
-        {
-          "address": "20.249.169.18"
-        },
-        {
-          "address": "20.249.169.147"
-        },
-        {
-          "address": "20.249.171.130"
-        },
-        {
-          "address": "4.230.149.189"
-        },
-        {
-          "address": "20.249.169.207"
-        },
-        {
-          "address": "20.249.171.17"
-        },
-        {
-          "address": "20.249.169.238"
-        }
-      ]
-    }
-  },
-  "id": "/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Logic/workflows/logic-dev-security-blog-automation",
-  "identity": {
-    "principalId": "<system-assigned-principal-id>",
-    "tenantId": "<your-tenant-id>",
-    "type": "SystemAssigned"
-  },
-  "integrationAccount": null,
-  "integrationServiceEnvironment": null,
-  "location": "koreacentral",
-  "name": "logic-dev-security-blog-automation",
+  "contentVersion": "1.0.0.0",
+  "outputs": {},
   "parameters": {
     "$connections": {
-      "description": null,
-      "metadata": null,
-      "type": null,
-      "value": {
-        "office365": {
-          "connectionId": "/subscriptions/<your-subscription-id>/resourceGroups/rg-security-blog-automation-dev/providers/Microsoft.Web/connections/office365-dev-security-blog-automation",
-          "connectionName": "office365-dev-security-blog-automation",
-          "connectionProperties": {},
-          "id": "/subscriptions/<your-subscription-id>/providers/Microsoft.Web/locations/koreacentral/managedApis/office365"
-        }
-      }
+      "defaultValue": {},
+      "type": "Object"
     },
     "emailRecipient": {
-      "description": null,
-      "metadata": null,
-      "type": null,
-      "value": "azure-mvp@zerobig.kr"
+      "defaultValue": "azure-mvp@zerobig.kr",
+      "type": "String"
     },
-    "functionKey": {},
-
+    "functionKey": {
+      "type": "String"
+    },
     "functionsAppUrl": {
-      "description": null,
-      "metadata": null,
-      "type": null,
-      "value": "https://func-dev-security-blog-automation.azurewebsites.net"
+      "defaultValue": "https://func-dev-security-blog-automation.azurewebsites.net",
+      "type": "String"
     },
     "rssFeedUrls": {
-      "description": null,
-      "metadata": null,
-      "type": null,
-      "value": [
+      "defaultValue": [
         {
-          "emoji": "",
-          "sourceName": "Microsoft Security Blog",
-          "url": "https://www.microsoft.com/en-us/security/blog/feed/"
+          "emoji": "&#9729;&#65039;",
+          "sourceName": "Azure Blog",
+          "url": "https://azure.microsoft.com/en-us/blog/feed/"
         },
         {
-          "emoji": "",
-          "sourceName": "Microsoft Sentinel Blog",
-          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftSentinelBlog"
+          "emoji": "&#128295;",
+          "sourceName": "Azure DevOps Blog",
+          "url": "https://devblogs.microsoft.com/devops/feed/"
         },
         {
-          "emoji": "",
-          "sourceName": "Microsoft Defender Blog",
-          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=MicrosoftDefenderBlog"
+          "emoji": "&#128202;",
+          "sourceName": "Fabric Blog",
+          "url": "https://blog.fabric.microsoft.com/en-us/blog/feed/"
         },
         {
-          "emoji": "",
-          "sourceName": "Zero Trust Blog",
-          "url": "https://www.microsoft.com/en-us/security/blog/topic/zero-trust/feed/"
+          "emoji": "&#127959;&#65039;",
+          "sourceName": "Azure Infrastructure Blog",
+          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=AzureInfrastructureBlog"
         },
         {
-          "emoji": "",
-          "sourceName": "Identity Blog",
-          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=Identity"
+          "emoji": "&#128296;",
+          "sourceName": "Microsoft 365 Dev Blog",
+          "url": "https://devblogs.microsoft.com/microsoft365dev/feed/"
+        },
+        {
+          "emoji": "&#9889;",
+          "sourceName": "Power Platform Blog",
+          "url": "https://cloudblogs.microsoft.com/powerplatform/feed/"
+        },
+        {
+          "emoji": "&#129302;",
+          "sourceName": "Azure AI Foundry Blog",
+          "url": "https://techcommunity.microsoft.com/t5/s/gxcuf89792/rss/board?board.id=azure-ai-foundry-blog"
         }
-      ]
+      ],
+      "type": "Array"
     },
     "scheduleText": {
-      "description": null,
-      "metadata": null,
-      "type": null,
-      "value": "Every day at 07:00, 15:00, 22:00 (KST)"
+      "defaultValue": "Every day at 08:00, 20:00 (KST)",
+      "type": "String"
     }
   },
-  "provisioningState": "Succeeded",
-  "resourceGroup": "rg-security-blog-automation-dev",
-  "sku": null,
-  "state": "Enabled",
-  "tags": null,
-  "type": "Microsoft.Logic/workflows",
-  "version": "08584303927915421038"
+  "triggers": {
+    "Recurrence": {
+      "evaluatedRecurrence": {
+        "frequency": "Day",
+        "interval": 1,
+        "schedule": {
+          "hours": [
+            8,
+            20
+          ]
+        },
+        "timeZone": "Korea Standard Time"
+      },
+      "recurrence": {
+        "frequency": "Day",
+        "interval": 1,
+        "schedule": {
+          "hours": [
+            8,
+            20
+          ]
+        },
+        "timeZone": "Korea Standard Time"
+      },
+      "type": "Recurrence"
+    }
+  }
 }
